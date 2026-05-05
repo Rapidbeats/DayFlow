@@ -40,22 +40,22 @@ export interface FocusAudioPrefs {
 }
 
 export const LOFI_TRACKS = [
-  '/audio/LoFi/Relax your mind.mp3',
-  '/audio/LoFi/Childish Gambino - Lofi cover.mp3',
-  '/audio/LoFi/Wandering Another World.mp3',
-  '/audio/LoFi/Starside Groove.mp3',
-  '/audio/LoFi/Lunar Drive.mp3',
+  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Relax.your.mind.mp3',
+  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Childish.Gambino.-.Lofi.cover.mp3',
+  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Wandering.Another.World.mp3',
+  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Starside.Groove.mp3',
+  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Lunar.Drive.mp3',
 ];
 
 export const RAIN_TRACKS = [
-  '/audio/Rain Sounds/Track 1.wav',
-  '/audio/Rain Sounds/Track 2.wav',
+  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/RS_Track.1.wav',
+  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/RS_Track.2.wav',
 ];
 
 export const BREAK_TRACKS = [
-  "/audio/Break Time/Let's Go Home.mp3",
-  '/audio/Break Time/U In My Arms.mp3',
-  '/audio/Break Time/Top Ten.mp3',
+  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/BT_Let.s.Go.Home.mp3',
+  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/BT_U.In.My.Arms.mp3',
+  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/BT_Top.Ten.mp3',
 ];
 
 export function getAudioPrefs(): FocusAudioPrefs {
