@@ -6,7 +6,6 @@ import Schedule from './pages/Schedule';
 import Tasks from './pages/Tasks';
 import Settings from './pages/Settings';
 import AuthPage from './pages/AuthPage';
-import DailyReflectionPrototype from './pages/DailyReflectionPrototype';
 import DailyReflection from './pages/DailyReflection';
 import FocusMode from './pages/FocusMode';
 
@@ -21,7 +20,6 @@ export const router = createBrowserRouter([
       { path: 'settings', Component: Settings },
       { path: 'reflection', Component: DailyReflection },
       { path: 'focus', Component: FocusMode },
-      { path: 'journal-prototype', Component: DailyReflectionPrototype },
     ],
   },
   {
