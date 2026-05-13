@@ -296,9 +296,8 @@ export function shouldShowMidpointCue(session: FocusSession, now = Date.now()) {
   const segment = session.segments[session.currentSegmentIndex];
   if (!segment || segment.type !== 'focus' || !segment.midpointAtSec || session.midpointPlayed || session.paused) return false;
 
-  // Calculate midpoint from segmentEndsAt backwards — unaffected by pause/resume resets
-  const midpointAt = session.segmentEndsAt - segment.midpointAtSec * 1000;
-  return now >= midpointAt;
+  const { remainingSec } = getFocusProgress(session, now);
+  return remainingSec <= Math.max(segment.durationSec - segment.midpointAtSec, 0);
 }
 
 export function markMidpointCuePlayed(session: FocusSession) {
@@ -376,38 +375,35 @@ export function sessionSummaryLabel(session: FocusSession) {
 }
 
 function buildFocusSegments(totalMinutes: number): FocusSegment[] {
-  const BLOCK_MINUTES = 60;
-  const FOCUS_MINUTES = 50;
-  const BREAK_MINUTES = 8;
-
-  const blockCount = Math.floor(totalMinutes / BLOCK_MINUTES);
-  const remainder = totalMinutes % BLOCK_MINUTES;
-
-  const hasExtraBlock = remainder >= 15;
-  const finalBlockCount = Math.max(blockCount + (hasExtraBlock ? 1 : 0), 1);
-
   const segments: FocusSegment[] = [];
+  let remaining = totalMinutes;
 
-  for (let i = 0; i < finalBlockCount; i += 1) {
-    const isFinalBlock = i === finalBlockCount - 1;
-
-    if (isFinalBlock) {
-      const nonFinalTotal = (finalBlockCount - 1) * BLOCK_MINUTES;
-      const finalFocusMinutes = totalMinutes - nonFinalTotal;
+  while (remaining > 0) {
+    if (remaining <= 55) {
       segments.push({
         type: 'focus',
-        durationSec: finalFocusMinutes * 60,
-        midpointAtSec: finalFocusMinutes >= 50 ? 25 * 60 : undefined,
+        durationSec: remaining * 60,
       });
-    } else {
-      segments.push({
-        type: 'focus',
-        durationSec: FOCUS_MINUTES * 60,
-        midpointAtSec: 25 * 60,
-      });
+      break;
+    }
+
+    const standardFocusMinutes = 50;
+    const remainderAfterStandardFocus = remaining - standardFocusMinutes;
+    const foldedFocusMinutes =
+      remainderAfterStandardFocus > 0 && remainderAfterStandardFocus < 15 ? remaining : standardFocusMinutes;
+
+    segments.push({
+      type: 'focus',
+      durationSec: foldedFocusMinutes * 60,
+      midpointAtSec: foldedFocusMinutes >= 50 ? 25 * 60 : undefined,
+    });
+
+    remaining -= foldedFocusMinutes;
+
+    if (remaining > 0) {
       segments.push({
         type: 'break',
-        durationSec: BREAK_MINUTES * 60,
+        durationSec: 8 * 60,
       });
     }
   }
