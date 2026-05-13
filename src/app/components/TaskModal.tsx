@@ -393,8 +393,8 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, initialTask, on
 
           {focusModeEligible && (
             <div className="rounded-[20px] border border-[rgba(var(--accent-rgb),0.2)] bg-[rgba(var(--accent-rgb),0.08)] p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
+              <div className="flex flex-wrap items-start justify-between gap-4 sm:flex-nowrap">
+                <div className="min-w-0 flex-1">
                   <div className="text-[14px] font-[650] text-[var(--text)]">Enable Focus Mode</div>
                   <div className="mt-1 text-[12px] leading-5 text-[var(--muted2)]">
                     Long tasks can run in guided 50/8 focus cycles with midpoint cues, break breathing, and recovery after refresh.
@@ -403,7 +403,7 @@ export default function TaskModal({ isOpen, onClose, taskToEdit, initialTask, on
                 <button
                   type="button"
                   onClick={() => setFocusModeEnabled((current) => !current)}
-                  className={`dayflow-toggle ${focusModeEnabled ? 'is-on' : ''}`}
+                  className={`dayflow-toggle ${focusModeEnabled ? 'is-on' : ''} shrink-0`}
                   aria-pressed={focusModeEnabled}
                   aria-label={focusModeEnabled ? 'Disable focus mode' : 'Enable focus mode'}
                 >
