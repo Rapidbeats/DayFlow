@@ -198,7 +198,7 @@ export default function Schedule() {
               </div>
             </div>
 
-            <div className="grid grid-cols-7 gap-2 text-center text-[11px] font-[700] uppercase tracking-[0.16em] text-[var(--muted)]">
+            <div className="dayflow-calendar-weekdays">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => (
                 <div key={label} className="py-2">
                   {label}
@@ -206,13 +206,14 @@ export default function Schedule() {
               ))}
             </div>
 
-            <div className="grid grid-cols-7 gap-2">
+            <div className="dayflow-calendar-grid">
               {monthGrid.map((day) => {
                 const isCurrentMonth = day.getMonth() === calendarMonth.getMonth();
                 const dateKey = toDateKey(day);
                 const isSelected = dateKey === selectedDate;
                 const hasTasks = taskDates.has(dateKey);
                 const isToday = dateKey === todayStr();
+                const taskCount = countTasksForDate(allTasks, dateKey);
 
                 return (
                   <button
@@ -220,25 +221,26 @@ export default function Schedule() {
                     type="button"
                     onClick={() => {
                       setSelectedDate(dateKey);
-                      setView('timeline');
                     }}
-                    className="min-h-[84px] rounded-[18px] border p-3 text-left transition"
+                    className="dayflow-calendar-cell"
                     style={{
                       background: isSelected ? 'rgba(var(--accent-rgb),0.18)' : 'rgba(255,255,255,0.04)',
                       borderColor: isSelected ? 'rgba(var(--accent-rgb),0.28)' : 'var(--border)',
                       opacity: isCurrentMonth ? 1 : 0.45,
                     }}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[14px] font-[700] text-[var(--text)]">{day.getDate()}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[13px] font-[700] text-[var(--text)] md:text-[14px]">{day.getDate()}</span>
                       {isToday && <span className="h-2 w-2 rounded-full bg-[var(--accent)]" />}
                     </div>
-                    <div className="mt-4 flex items-center gap-2">
+                    <div className="mt-auto flex items-center justify-between gap-2">
                       <span
-                        className="h-2.5 w-2.5 rounded-full"
+                        className="h-2 w-2 rounded-full"
                         style={{ background: hasTasks ? 'var(--accent)' : 'rgba(255,255,255,0.12)' }}
                       />
-                      <span className="text-[11px] text-[var(--muted2)]">{countTasksForDate(allTasks, dateKey)} tasks</span>
+                      <span className={`dayflow-calendar-count ${taskCount > 0 ? 'has-tasks' : ''}`}>
+                        {taskCount}
+                      </span>
                     </div>
                   </button>
                 );
@@ -254,10 +256,10 @@ export default function Schedule() {
               </h2>
               <p className="dayflow-body mt-3">
                 {tasks.length > 0
-                  ? `${tasks.length} task${tasks.length === 1 ? '' : 's'} scheduled. Open the timeline to place or adjust them by hour.`
-                  : 'No tasks on this date yet. Open the timeline or use add task to shape the day.'}
+                  ? `${tasks.length} task${tasks.length === 1 ? '' : 's'} scheduled. Stay here to browse the month, or open the daily timeline to place them by hour.`
+                  : 'No tasks on this date yet. Stay in calendar view to browse, or open the timeline to start planning.'}
               </p>
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" className="dayflow-primary-button" onClick={() => setView('timeline')}>
                   Open timeline
                 </button>
@@ -283,7 +285,7 @@ export default function Schedule() {
                         <div>
                           <div className="text-[14px] font-[600] text-[var(--text)]">{task.name}</div>
                           <div className="mt-1 text-[12px] text-[var(--muted2)]">
-                            {task.time || 'No time set'} · {task.dur} min
+                            {task.time || 'No time set'} - {task.dur} min
                           </div>
                         </div>
                         <span className="dayflow-category-pill">{task.cat}</span>
@@ -391,7 +393,7 @@ function TimelinePanel({
           <h2 className="dayflow-h2">Plan the day</h2>
         </div>
         <div className="text-right text-[12px] text-[var(--muted2)]">
-          <span style={{ color: 'var(--accent)' }}>{tasks.length}</span> planned · <span>{awakeHours}h</span> awake · <span>{freeHours}h</span> free
+          <span style={{ color: 'var(--accent)' }}>{tasks.length}</span> planned - <span>{awakeHours}h</span> awake - <span>{freeHours}h</span> free
         </div>
       </div>
 
@@ -475,7 +477,7 @@ function TimelinePanel({
                     <div className="dayflow-category-pill">{task.cat}</div>
                   </div>
                   <div className="dayflow-caption mt-1">
-                    {task.time || 'No time set'} · {task.dur} min
+                    {task.time || 'No time set'} - {task.dur} min
                   </div>
                   {task.notes && <div className="dayflow-body mt-2">{task.notes}</div>}
                 </div>
