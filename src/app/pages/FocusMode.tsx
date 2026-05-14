@@ -1,5 +1,16 @@
 import { type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react';
-import { Minimize2, Music, Pause, Play, SkipForward, TimerReset, Volume2, VolumeX, X } from 'lucide-react';
+import {
+  Clock3,
+  Minimize2,
+  Music,
+  Pause,
+  Play,
+  SkipForward,
+  TimerReset,
+  Volume2,
+  VolumeX,
+  X,
+} from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import {
   BREAK_TRACKS,
@@ -45,10 +56,10 @@ type AlertState =
 const BREAK_TIPS = [
   'Hydrate for better performance.',
   'Look away from the screen and reset your eyes.',
-  'Take ten slow shoulder rolls and loosen the neck.',
-  'Stand up and let your breathing settle before the next block.',
+  'Relax your shoulders and loosen the jaw.',
+  'Stand up for a minute and let your breathing settle.',
   'Walk a few steps. Motion helps attention recover.',
-  'Small recovery now usually buys better focus later.',
+  'A small reset now buys sharper focus later.',
 ];
 
 const FOCUS_QUOTES = [
@@ -56,8 +67,8 @@ const FOCUS_QUOTES = [
   'One block at a time. You are building something real.',
   'Deep work compounds. Keep going.',
   'The best time to focus is now.',
-  'Distraction is the enemy of excellence.',
-  'You chose this. See it through.',
+  'Consistency grows quietly. Keep the block alive.',
+  'You chose this session. See it through.',
 ];
 
 const PHASE_STEPS = ['Inhale', 'Hold', 'Exhale', 'Hold'] as const;
@@ -76,7 +87,7 @@ export default function FocusMode() {
   const [quoteIndex] = useState(() => Math.floor(Math.random() * FOCUS_QUOTES.length));
 
   const { syncTasks, refreshTasks } = useAuth();
-  const audioCtxRef = useRef<AudioContext | null>(null);
+  const alarmCtxRef = useRef<AudioContext | null>(null);
   const focusAudioRef = useRef<HTMLAudioElement | null>(null);
   const breakAudioRef = useRef<HTMLAudioElement | null>(null);
   const activeTrackSegmentRef = useRef<number>(-1);
@@ -101,7 +112,7 @@ export default function FocusMode() {
       setSession(nextSession);
       setLoading(false);
     });
-  }, [taskId, navigate, refreshTasks, syncTasks]);
+  }, [navigate, refreshTasks, syncTasks, taskId]);
 
   useEffect(() => {
     const syncSession = () => {
@@ -120,7 +131,7 @@ export default function FocusMode() {
 
   useEffect(() => {
     return () => {
-      stopAlarmAudio(audioCtxRef);
+      stopAlarmAudio(alarmCtxRef);
       stopTrackAudio(focusAudioRef);
       stopTrackAudio(breakAudioRef);
     };
@@ -139,21 +150,19 @@ export default function FocusMode() {
 
     const targetRef = segmentType === 'focus' ? focusAudioRef : breakAudioRef;
     const otherRef = segmentType === 'focus' ? breakAudioRef : focusAudioRef;
-
     stopTrackAudio(otherRef);
 
-    if (activeTrackSegmentRef.current !== session.currentSegmentIndex || !targetRef.current) {
+    if (activeTrackSegmentRef.current !== session!.currentSegmentIndex || !targetRef.current) {
       stopTrackAudio(targetRef);
       const source =
         segmentType === 'focus'
           ? pickRandomTrack(audioPrefs.category === 'rain' ? RAIN_TRACKS : LOFI_TRACKS)
           : pickRandomTrack(BREAK_TRACKS);
-
       const audio = new Audio(source);
       audio.loop = true;
       audio.volume = audioPrefs.volume;
       targetRef.current = audio;
-      activeTrackSegmentRef.current = session.currentSegmentIndex;
+      activeTrackSegmentRef.current = session!.currentSegmentIndex;
       void audio.play().catch(() => undefined);
       return;
     }
@@ -169,7 +178,7 @@ export default function FocusMode() {
       setSession(nextSession);
       void syncTasks();
       setAlertState({ type: 'midpoint', visible: true });
-      playAlarm(audioCtxRef, 15);
+      playAlarm(alarmCtxRef, 15);
       window.setTimeout(() => {
         setAlertState((current) => (current?.type === 'midpoint' ? null : current));
       }, 2500);
@@ -181,7 +190,6 @@ export default function FocusMode() {
 
     const currentSegment = session.segments[session.currentSegmentIndex];
     const nextSession = moveToNextFocusSegment(session);
-
     activeTrackSegmentRef.current = -1;
     setSession(nextSession);
     void syncTasks();
@@ -199,7 +207,7 @@ export default function FocusMode() {
             ? 'You pushed through and finished strong.'
             : 'The final block is done. Task marked complete.',
       });
-      playAlarm(audioCtxRef, 18);
+      playAlarm(alarmCtxRef, 18);
       return;
     }
 
@@ -213,7 +221,7 @@ export default function FocusMode() {
           ? `${breakTipForSegment(nextSession.currentSegmentIndex)} Your 8 minute reset starts now.`
           : 'Recovery done. Time for the next focus block.',
     });
-    playAlarm(audioCtxRef, 30);
+    playAlarm(alarmCtxRef, 30);
   }, [alertState?.visible, now, session, syncTasks]);
 
   const theme = getTheme(session?.themeId || 'emerald');
@@ -229,13 +237,22 @@ export default function FocusMode() {
   const completedFocusMinutes = session ? getCompletedFocusMinutes(session) : 0;
   const completedSessionMinutes = session ? getCompletedSessionMinutes(session, now) : 0;
   const totalSessionMinutes = session ? getTotalSessionMinutes(session) : 0;
-  const totalFocusOnlyMinutes = session
+  const totalFocusMinutes = session
     ? session.segments.filter((segment) => segment.type === 'focus').reduce((sum, segment) => sum + segment.durationSec / 60, 0)
     : 0;
-  const totalBreakMinutes = Math.max(totalSessionMinutes - totalFocusOnlyMinutes, 0);
-  const remainingFocusMinutes = session ? Math.max(totalFocusOnlyMinutes - completedFocusMinutes, 0) : 0;
+  const totalBreakMinutes = Math.max(totalSessionMinutes - totalFocusMinutes, 0);
+  const remainingFocusMinutes = session ? Math.max(totalFocusMinutes - completedFocusMinutes, 0) : 0;
   const remainingRuntimeMinutes = session ? Math.max(totalSessionMinutes - completedSessionMinutes, 0) : 0;
   const runtimeProgressPct = totalSessionMinutes > 0 ? (completedSessionMinutes / totalSessionMinutes) * 100 : 0;
+  const ringCircumference = 2 * Math.PI * 164;
+  const ringOffset = ringCircumference - ringCircumference * progress.progress;
+  const currentModeLabel = showBreakUi ? 'Break Time' : 'Focus Time';
+  const statusItems = [
+    { label: 'Completed today', value: `${cycleBars.filter((bar) => bar.focusState === 'done').length} / ${cycleBars.length} blocks` },
+    { label: 'Focus time', value: `${Math.round(completedFocusMinutes)}m done` },
+    { label: 'Remaining', value: `${Math.max(Math.ceil(remainingFocusMinutes), 0)}m focus` },
+    { label: 'Session', value: showBreakUi ? 'On break' : session?.paused ? 'Paused' : 'Active' },
+  ];
 
   if (loading) {
     return (
@@ -265,8 +282,8 @@ export default function FocusMode() {
     <div
       className="dayflow-focus-shell min-h-[calc(100vh-96px)] overflow-hidden rounded-[32px]"
       style={{
-        background: `radial-gradient(ellipse at 70% 0%, rgba(${accentRgb}, 0.18) 0%, transparent 60%), linear-gradient(180deg, #080c14 0%, #0a0f1c 100%)`,
-        border: `1px solid rgba(${accentRgb}, 0.15)`,
+        background: `radial-gradient(circle at top, rgba(${accentRgb}, 0.18), transparent 30%), linear-gradient(180deg, #09111c 0%, #081018 100%)`,
+        border: `1px solid rgba(${accentRgb}, 0.16)`,
       }}
     >
       <div className="flex flex-wrap items-start justify-between gap-4 px-5 pb-0 pt-5 md:px-6 md:pt-6">
@@ -275,15 +292,15 @@ export default function FocusMode() {
             Focus Mode
           </div>
           <h1 className="mt-1 text-[22px] font-[800] tracking-[-0.03em] text-white">{session.taskName}</h1>
-          <p className="mt-0.5 text-[13px] text-white/40">
-            {phaseLabel(session)} · {sessionSummaryLabel(session)}
+          <p className="mt-1 text-[13px] text-white/42">
+            {phaseLabel(session)} - {sessionSummaryLabel(session)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => {
-              stopAlarmAudio(audioCtxRef);
+              stopAlarmAudio(alarmCtxRef);
               stopTrackAudio(focusAudioRef);
               stopTrackAudio(breakAudioRef);
               navigate('/');
@@ -296,7 +313,7 @@ export default function FocusMode() {
           <button
             type="button"
             onClick={() => {
-              stopAlarmAudio(audioCtxRef);
+              stopAlarmAudio(alarmCtxRef);
               stopTrackAudio(focusAudioRef);
               stopTrackAudio(breakAudioRef);
               clearFocusSession(session.taskId);
@@ -313,66 +330,39 @@ export default function FocusMode() {
 
       <div className="px-5 pt-5 md:px-6">
         <div className="mb-3 flex items-center justify-between">
-          <span className="text-[11px] font-[700] uppercase tracking-[0.2em] text-white/30">Progress timeline</span>
+          <span className="text-[11px] font-[700] uppercase tracking-[0.2em] text-white/30">Progress Timeline</span>
           <span className="text-[12px] font-[600]" style={{ color: `rgb(${accentRgb})` }}>
             {Math.max(Math.ceil(remainingRuntimeMinutes), 0)}m left
           </span>
         </div>
-        <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(cycleBars.length, 1)}, minmax(0,1fr))` }}>
+        <div className="dayflow-focus-cycle-grid">
           {cycleBars.map((bar) => {
             const isCurrent = bar.focusState === 'current-focus' || bar.breakState === 'current-break';
-            const isDone = bar.focusState === 'done';
-
             return (
               <div
                 key={bar.key}
-                className="rounded-[16px] p-3 transition-all"
+                className="dayflow-focus-cycle-card"
                 style={{
-                  background: isCurrent
-                    ? `linear-gradient(135deg, rgba(${accentRgb},0.18), rgba(${accentRgb},0.08))`
-                    : 'rgba(255,255,255,0.04)',
-                  border: isCurrent ? `1px solid rgba(${accentRgb},0.35)` : '1px solid rgba(255,255,255,0.07)',
+                  borderColor: isCurrent ? `rgba(${accentRgb}, 0.34)` : 'rgba(255,255,255,0.07)',
+                  background: isCurrent ? `linear-gradient(135deg, rgba(${accentRgb},0.15), rgba(255,255,255,0.04))` : 'rgba(255,255,255,0.03)',
                 }}
               >
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[11px] font-[700] uppercase tracking-[0.15em]" style={{ color: isCurrent ? `rgb(${accentRgb})` : 'rgba(255,255,255,0.35)' }}>
-                    {bar.short}
-                  </span>
-                  <span className="text-[11px] text-white/30">
-                    {bar.focusMinutes}m{bar.breakMinutes > 0 ? ` / ${bar.breakMinutes}m` : ''}
+                <div className="dayflow-focus-cycle-meta">
+                  <span>{bar.short}</span>
+                  <span>
+                    {bar.focusMinutes}m / {bar.breakMinutes ? `${bar.breakMinutes}m` : '0m'}
                   </span>
                 </div>
-                <div className="flex h-2 gap-1.5 overflow-hidden rounded-full">
-                  <div
-                    className="rounded-full transition-all"
-                    style={{
-                      flex: `${bar.focusMinutes} 1 0%`,
-                      background:
-                        isDone || bar.focusState === 'current-focus' ? `rgb(${accentRgb})` : 'rgba(255,255,255,0.12)',
-                    }}
-                  />
+                <div className="dayflow-focus-cycle-track">
+                  <div className={`dayflow-focus-cycle-segment focus ${bar.focusState}`} style={{ flex: `${bar.focusMinutes} 1 0%` }}>
+                    <span>Focus</span>
+                  </div>
                   {bar.breakMinutes > 0 && (
-                    <div
-                      className="rounded-full transition-all"
-                      style={{
-                        flex: `${bar.breakMinutes} 1 0%`,
-                        background:
-                          bar.breakState === 'done'
-                            ? `rgba(${accentRgb},0.5)`
-                            : bar.breakState === 'current-break'
-                              ? `rgba(${accentRgb},0.7)`
-                              : bar.breakState === 'skipped'
-                                ? 'rgba(255,255,255,0.06)'
-                                : 'rgba(255,255,255,0.08)',
-                      }}
-                    />
+                    <div className={`dayflow-focus-cycle-segment break ${bar.breakState}`} style={{ flex: `${bar.breakMinutes} 1 0%` }}>
+                      <span>{bar.breakState === 'skipped' ? 'Skipped' : 'Break'}</span>
+                    </div>
                   )}
                 </div>
-                {isCurrent && (
-                  <div className="mt-2 text-[10px] font-[600] uppercase tracking-[0.15em]" style={{ color: `rgba(${accentRgb},0.8)` }}>
-                    {bar.breakState === 'current-break' ? 'Break' : 'Current'}
-                  </div>
-                )}
               </div>
             );
           })}
@@ -380,82 +370,94 @@ export default function FocusMode() {
       </div>
 
       <div className="grid gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <section
-          className="relative overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.03] px-4 py-8 md:px-6 md:py-10"
-          style={{ boxShadow: '0 22px 50px rgba(0,0,0,0.24)' }}
-        >
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{ background: `radial-gradient(circle at 50% 45%, rgba(${accentRgb},0.09) 0%, transparent 60%)` }}
-          />
+        <section className="dayflow-focus-hero">
+          <div className="dayflow-focus-hero-glow" style={{ background: `radial-gradient(circle, rgba(${accentRgb},0.24) 0%, transparent 66%)` }} />
+          <div className="dayflow-focus-badge" style={{ borderColor: `rgba(${accentRgb},0.22)`, color: `rgb(${accentRgb})` }}>
+            {showBreakUi ? 'Reset Break' : 'Deep Focus'}
+          </div>
 
-          <div className="relative z-10 mx-auto flex max-w-xl flex-col items-center gap-5 text-center">
-            <div className="inline-flex items-center rounded-full border border-white/8 bg-white/5 px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/55">
-              {showBreakUi ? 'Recovery break' : 'Deep focus'}
+          <div className="dayflow-focus-ring-wrap">
+            <svg viewBox="0 0 380 380" className="dayflow-focus-ring-svg" aria-hidden="true">
+              <circle cx="190" cy="190" r="164" className="dayflow-focus-ring-track" />
+              <circle
+                cx="190"
+                cy="190"
+                r="164"
+                className="dayflow-focus-ring-progress"
+                style={{
+                  stroke: `rgb(${accentRgb})`,
+                  strokeDasharray: ringCircumference,
+                  strokeDashoffset: ringOffset,
+                  filter: `drop-shadow(0 0 16px rgba(${accentRgb},0.45))`,
+                }}
+              />
+            </svg>
+
+            <div className="dayflow-focus-ring-content">
+              <div className="dayflow-focus-ring-time">{formatClock(progress.remainingSec)}</div>
+              <div className="dayflow-focus-ring-label">{currentModeLabel}</div>
+              <div className="dayflow-focus-audio-bars" aria-hidden="true">
+                {Array.from({ length: 5 }, (_, index) => (
+                  <span
+                    key={index}
+                    className={`dayflow-focus-audio-bar ${audioPrefs.enabled && !session.paused ? 'is-playing' : ''}`}
+                    style={{ animationDelay: `${index * 0.12}s`, background: `rgba(${accentRgb}, ${0.4 + index * 0.1})` }}
+                  />
+                ))}
+              </div>
+              {showBreakUi ? (
+                <div className="dayflow-focus-break-copy">
+                  <div className="dayflow-focus-break-phase">{breakPhase.label}</div>
+                  <div className="dayflow-focus-break-tip">{breakTipForSegment(session.currentSegmentIndex)}</div>
+                </div>
+              ) : null}
             </div>
+          </div>
 
-            {showBreakUi ? (
-              <>
-                <BreathingGuide themeRgb={accentRgb} stepLabel={breakPhase.label} stepRemaining={breakPhase.remaining} />
-                <div className="h-2 w-full overflow-hidden rounded-full bg-white/8">
-                  <div
-                    className="h-full rounded-full transition-[width] duration-700"
-                    style={{
-                      width: `${Math.min(100, Math.max(0, progress.progress * 100))}%`,
-                      background: `linear-gradient(90deg, rgba(${accentRgb}, 0.58), rgb(${accentRgb}))`,
-                    }}
-                  />
-                </div>
-                <div className="text-[12px] text-white/40">{formatClock(progress.remainingSec)} left in this break</div>
-                <h2 className="text-[26px] font-[800] tracking-[-0.04em] text-white">Reset and come back sharper</h2>
-                <p className="max-w-md text-[14px] leading-6 text-white/50">{breakTipForSegment(session.currentSegmentIndex)}</p>
-                <div className="rounded-[18px] border border-white/8 bg-white/4 px-4 py-3 text-[13px] leading-6 text-white/45">
-                  Follow the word and countdown: 5 seconds per phase, 20 seconds per full breathing cycle.
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="text-[64px] font-[800] leading-none tracking-[-0.06em] text-white md:text-[92px]">
-                  {formatClock(progress.remainingSec)}
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-white/8">
-                  <div
-                    className="h-full rounded-full transition-[width] duration-700"
-                    style={{
-                      width: `${Math.min(100, Math.max(0, progress.progress * 100))}%`,
-                      background: `linear-gradient(90deg, ${theme.accentSoft}, ${theme.accentStrong})`,
-                    }}
-                  />
-                </div>
-                <p className="max-w-lg text-[14px] leading-6 text-white/50">
-                  Stay on one task. Long focus blocks get a 25 minute midpoint cue, then the session drives the next transition.
-                </p>
-                <div className="flex items-center gap-2 rounded-[16px] border border-white/8 bg-white/4 px-4 py-3 text-[13px] text-white/55">
-                  <span style={{ color: `rgb(${accentRgb})` }}>⚡</span>
-                  {FOCUS_QUOTES[quoteIndex]}
-                </div>
-              </>
-            )}
+          <div className="dayflow-focus-pause-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                if (session.paused) {
+                  setSession(resumeFocusSession(session, session.pausedRemainingSec || progress.remainingSec));
+                } else {
+                  setSession(pauseFocusSession(session, progress.remainingSec));
+                }
+                void syncTasks();
+              }}
+              className="dayflow-focus-pause-button"
+              style={{ borderColor: `rgba(${accentRgb},0.35)`, boxShadow: `0 0 24px rgba(${accentRgb},0.18)` }}
+            >
+              {session.paused ? <Play className="h-6 w-6" /> : <Pause className="h-6 w-6" />}
+            </button>
+          </div>
+
+          <div className="dayflow-focus-quote">
+            <span style={{ color: `rgb(${accentRgb})` }}>+</span>
+            {showBreakUi ? `${breakPhase.label} for ${Math.ceil(breakPhase.remaining)}s, then flow onward.` : FOCUS_QUOTES[quoteIndex]}
           </div>
         </section>
 
         <aside className="flex flex-col gap-4">
           <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-5">
-            <div className="text-[11px] font-[700] uppercase tracking-[0.2em] text-white/30">Session status</div>
+            <div className="text-[11px] font-[700] uppercase tracking-[0.2em] text-white/30">Session Status</div>
             <div className="mt-2 text-[28px] font-[800] tracking-[-0.04em] text-white">{Math.max(Math.ceil(remainingRuntimeMinutes), 0)}m remaining</div>
             <div className="mt-1 text-[13px] text-white/40">
-              {Math.round(totalFocusOnlyMinutes)}m focus · {Math.round(totalBreakMinutes)}m breaks · {Math.round(totalSessionMinutes)}m total
+              {Math.round(totalFocusMinutes)}m focus - {Math.round(totalBreakMinutes)}m breaks - {Math.round(totalSessionMinutes)}m total
             </div>
-            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/8">
+            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/8">
               <div
                 className="h-full rounded-full transition-[width] duration-700"
                 style={{
                   width: `${Math.min(100, Math.max(0, runtimeProgressPct))}%`,
-                  background: `linear-gradient(90deg, rgba(${accentRgb},0.7), rgb(${accentRgb}))`,
+                  background: `linear-gradient(90deg, rgba(${accentRgb},0.75), rgb(${accentRgb}))`,
                 }}
               />
             </div>
-            <div className="mt-2 text-[12px] text-white/30">{Math.max(Math.ceil(remainingFocusMinutes), 0)}m of focus work remains</div>
+            <div className="mt-3 inline-flex items-center gap-2 text-[12px] text-white/35">
+              <Clock3 className="h-3.5 w-3.5" />
+              {Math.max(Math.ceil(remainingFocusMinutes), 0)}m of focus work remains
+            </div>
           </div>
 
           <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-5">
@@ -471,7 +473,7 @@ export default function FocusMode() {
                   }
                   void syncTasks();
                 }}
-                className="flex items-center justify-center gap-2 rounded-[14px] border border-white/10 bg-white/7 px-4 py-3 text-[13px] font-[600] text-white transition hover:bg-white/10"
+                className="flex items-center justify-center gap-2 rounded-[14px] border border-white/10 bg-white/6 px-4 py-3 text-[13px] font-[600] text-white transition hover:bg-white/10"
               >
                 {session.paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
                 {session.paused ? 'Resume' : 'Pause'}
@@ -480,12 +482,12 @@ export default function FocusMode() {
               <button
                 type="button"
                 onClick={() => {
-                  stopAlarmAudio(audioCtxRef);
+                  stopAlarmAudio(alarmCtxRef);
                   stopTrackAudio(focusAudioRef);
                   stopTrackAudio(breakAudioRef);
                   navigate('/');
                 }}
-                className="flex items-center justify-center gap-2 rounded-[14px] border border-white/10 bg-white/7 px-4 py-3 text-[13px] font-[600] text-white transition hover:bg-white/10"
+                className="flex items-center justify-center gap-2 rounded-[14px] border border-white/10 bg-white/6 px-4 py-3 text-[13px] font-[600] text-white transition hover:bg-white/10"
               >
                 <Minimize2 className="h-4 w-4" />
                 Minimize
@@ -514,7 +516,7 @@ export default function FocusMode() {
                     setAlertState(null);
                     void syncTasks();
                   }}
-                  className="flex items-center justify-center gap-2 rounded-[14px] border border-white/10 bg-white/7 px-4 py-3 text-[13px] font-[600] text-white transition hover:bg-white/10 sm:col-span-2"
+                  className="flex items-center justify-center gap-2 rounded-[14px] border border-white/10 bg-white/6 px-4 py-3 text-[13px] font-[600] text-white transition hover:bg-white/10 sm:col-span-2"
                 >
                   <SkipForward className="h-4 w-4" />
                   Skip break
@@ -524,7 +526,7 @@ export default function FocusMode() {
               <button
                 type="button"
                 onClick={() => {
-                  stopAlarmAudio(audioCtxRef);
+                  stopAlarmAudio(alarmCtxRef);
                   stopTrackAudio(focusAudioRef);
                   stopTrackAudio(breakAudioRef);
                   clearFocusSession(session.taskId);
@@ -554,11 +556,13 @@ export default function FocusMode() {
             <div className="mt-3 flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => updateAudioPrefs(audioPrefs, setAudioPrefs, { enabled: !audioPrefs.enabled }, () => {
-                  stopTrackAudio(focusAudioRef);
-                  stopTrackAudio(breakAudioRef);
-                  activeTrackSegmentRef.current = -1;
-                })}
+                onClick={() =>
+                  updateAudioPrefs(audioPrefs, setAudioPrefs, { enabled: !audioPrefs.enabled }, () => {
+                    stopTrackAudio(focusAudioRef);
+                    stopTrackAudio(breakAudioRef);
+                    activeTrackSegmentRef.current = -1;
+                  })
+                }
                 className="flex shrink-0 items-center gap-1.5 text-[13px] text-white/60 transition hover:text-white"
               >
                 {audioPrefs.enabled ? <Volume2 className="h-4 w-4" style={{ color: `rgb(${accentRgb})` }} /> : <VolumeX className="h-4 w-4" />}
@@ -569,9 +573,7 @@ export default function FocusMode() {
                 max={1}
                 step={0.05}
                 value={audioPrefs.volume}
-                onChange={(event) =>
-                  updateAudioPrefs(audioPrefs, setAudioPrefs, { volume: Number(event.target.value) })
-                }
+                onChange={(event) => updateAudioPrefs(audioPrefs, setAudioPrefs, { volume: Number(event.target.value) })}
                 disabled={!audioPrefs.enabled}
                 className="flex-1"
                 style={{ accentColor: `rgb(${accentRgb})` }}
@@ -597,8 +599,7 @@ export default function FocusMode() {
                       className="rounded-[12px] px-3 py-2.5 text-[13px] font-[600] transition"
                       style={{
                         background: audioPrefs.category === category ? `rgba(${accentRgb},0.2)` : 'rgba(255,255,255,0.05)',
-                        border:
-                          audioPrefs.category === category ? `1px solid rgba(${accentRgb},0.4)` : '1px solid rgba(255,255,255,0.08)',
+                        border: audioPrefs.category === category ? `1px solid rgba(${accentRgb},0.4)` : '1px solid rgba(255,255,255,0.08)',
                         color: audioPrefs.category === category ? `rgb(${accentRgb})` : 'rgba(255,255,255,0.45)',
                       }}
                     >
@@ -614,19 +615,11 @@ export default function FocusMode() {
       </div>
 
       <div className="px-5 pb-5 md:px-6 md:pb-6">
-        <div className="grid gap-2 rounded-[18px] border border-white/10 bg-white/[0.03] p-3 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            { label: 'Completed today', value: `${cycleBars.filter((bar) => bar.focusState === 'done').length} / ${cycleBars.length} blocks` },
-            { label: 'Focus time', value: `${Math.round(completedFocusMinutes)}m done` },
-            { label: 'Remaining', value: `${Math.max(Math.ceil(remainingFocusMinutes), 0)}m focus` },
-            { label: 'Session', value: showBreakUi ? 'On break' : session.paused ? 'Paused' : 'Active' },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-[14px] border border-white/6 bg-white/[0.02] px-3 py-3 text-center sm:text-left xl:border-0 xl:bg-transparent"
-            >
-              <div className="text-[11px] uppercase tracking-[0.14em] text-white/30">{stat.label}</div>
-              <div className="mt-1 text-[14px] font-[700] text-white">{stat.value}</div>
+        <div className="dayflow-focus-stats-grid">
+          {statusItems.map((stat) => (
+            <div key={stat.label} className="dayflow-focus-stat-card">
+              <div className="dayflow-focus-stat-label">{stat.label}</div>
+              <div className="dayflow-focus-stat-value">{stat.value}</div>
             </div>
           ))}
         </div>
@@ -642,7 +635,7 @@ export default function FocusMode() {
             <button
               type="button"
               onClick={() => {
-                stopAlarmAudio(audioCtxRef);
+                stopAlarmAudio(alarmCtxRef);
                 setAlertState(null);
               }}
               className="mt-3 rounded-[12px] px-4 py-2 text-[12px] font-[600] text-white transition hover:opacity-80"
@@ -665,7 +658,7 @@ export default function FocusMode() {
                 <button
                   type="button"
                   onClick={() => {
-                    stopAlarmAudio(audioCtxRef);
+                    stopAlarmAudio(alarmCtxRef);
                     stopTrackAudio(breakAudioRef);
                     activeTrackSegmentRef.current = -1;
                     setSession(skipCurrentBreak(session));
@@ -680,7 +673,7 @@ export default function FocusMode() {
               <button
                 type="button"
                 onClick={() => {
-                  stopAlarmAudio(audioCtxRef);
+                  stopAlarmAudio(alarmCtxRef);
                   setSession(snoozeFocusSession(session, 120));
                   void syncTasks();
                   setAlertState(null);
@@ -693,7 +686,7 @@ export default function FocusMode() {
               <button
                 type="button"
                 onClick={() => {
-                  stopAlarmAudio(audioCtxRef);
+                  stopAlarmAudio(alarmCtxRef);
                   if (alertState.type === 'complete') {
                     clearFocusSession(session.taskId);
                     void syncTasks();
@@ -733,15 +726,11 @@ function BreathingGuide({
   stepRemaining: number;
 }) {
   return (
-    <div className="flex flex-col items-center">
-      <div className="dayflow-breath-square-wrap">
-        <div className="dayflow-breath-square" style={{ borderColor: `rgba(${themeRgb}, 0.78)` }}>
-          <div className="dayflow-breath-float" style={{ color: `rgb(${themeRgb})`, textShadow: `0 0 22px rgba(${themeRgb},0.36)` }}>
-            {stepLabel}
-          </div>
-          <div className="dayflow-breath-count">{Math.ceil(stepRemaining)}</div>
-        </div>
+    <div className="dayflow-focus-break-guide">
+      <div className="dayflow-focus-break-phase" style={{ color: `rgb(${themeRgb})` }}>
+        {stepLabel}
       </div>
+      <div className="dayflow-focus-break-count">{Math.ceil(stepRemaining)}</div>
     </div>
   );
 }
