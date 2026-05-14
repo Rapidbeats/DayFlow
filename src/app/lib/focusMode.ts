@@ -376,21 +376,16 @@ export function sessionSummaryLabel(session: FocusSession) {
 
 function buildFocusSegments(totalMinutes: number): FocusSegment[] {
   const segments: FocusSegment[] = [];
+  const FOCUS_MINUTES = 50;
+  const BREAK_MINUTES = 8;
   let remaining = totalMinutes;
 
-  while (remaining > 0) {
-    if (remaining <= 55) {
-      segments.push({
-        type: 'focus',
-        durationSec: remaining * 60,
-      });
-      break;
-    }
-
-    const standardFocusMinutes = 50;
-    const remainderAfterStandardFocus = remaining - standardFocusMinutes;
+  while (remaining > 55) {
+    const remainderAfterStandardBlock = remaining - (FOCUS_MINUTES + BREAK_MINUTES);
     const foldedFocusMinutes =
-      remainderAfterStandardFocus > 0 && remainderAfterStandardFocus < 15 ? remaining : standardFocusMinutes;
+      remainderAfterStandardBlock > 0 && remainderAfterStandardBlock < 15
+        ? FOCUS_MINUTES + remainderAfterStandardBlock
+        : FOCUS_MINUTES;
 
     segments.push({
       type: 'focus',
@@ -398,14 +393,19 @@ function buildFocusSegments(totalMinutes: number): FocusSegment[] {
       midpointAtSec: foldedFocusMinutes >= 50 ? 25 * 60 : undefined,
     });
 
-    remaining -= foldedFocusMinutes;
+    segments.push({
+      type: 'break',
+      durationSec: BREAK_MINUTES * 60,
+    });
 
-    if (remaining > 0) {
-      segments.push({
-        type: 'break',
-        durationSec: 8 * 60,
-      });
-    }
+    remaining -= foldedFocusMinutes + BREAK_MINUTES;
+  }
+
+  if (remaining > 0) {
+    segments.push({
+      type: 'focus',
+      durationSec: remaining * 60,
+    });
   }
 
   return segments;
