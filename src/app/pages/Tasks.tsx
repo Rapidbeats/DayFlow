@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react';
-import { getTasks, saveTasks, TASKS_UPDATED_EVENT } from '../lib/storage';
-import { Task } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
-import { requestConfirm } from '../components/ConfirmSheet';
-import { getTaskFocusMode } from '../lib/focusMode';
-import { toggleTaskCompletion } from '../lib/taskActions';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { requestConfirm } from '../components/ConfirmSheet';
+import { useAuth } from '../contexts/AuthContext';
+import { getTaskFocusMode } from '../lib/focusMode';
+import { getTasks, openTaskModal, saveTasks, TASKS_UPDATED_EVENT } from '../lib/storage';
+import { toggleTaskCompletion } from '../lib/taskActions';
+import { Task } from '../lib/supabase';
+
+type SortKey = 'name' | 'date' | 'time' | 'dur' | 'cat' | 'done';
+type SortDirection = 'asc' | 'desc';
 
 const CATEGORY_LABELS: Record<Task['cat'], string> = {
   personal: 'Personal',
@@ -16,21 +19,39 @@ const CATEGORY_LABELS: Record<Task['cat'], string> = {
 
 export default function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'done'>('all');
+  const [sortKey, setSortKey] = useState<SortKey>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const { syncTasks, deleteTaskFromCloud } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     const loadTasks = () => {
-      const allTasks = getTasks();
-      const sorted = [...allTasks].sort((a, b) => b.created - a.created);
-      setTasks(sorted);
+      setTasks([...getTasks()]);
     };
 
     loadTasks();
     window.addEventListener(TASKS_UPDATED_EVENT, loadTasks as EventListener);
     return () => window.removeEventListener(TASKS_UPDATED_EVENT, loadTasks as EventListener);
   }, []);
+
+  const filteredTasks = useMemo(() => {
+    return tasks
+      .filter((task) => {
+        const matchesSearch =
+          !search.trim() ||
+          task.name.toLowerCase().includes(search.toLowerCase()) ||
+          (task.notes || '').toLowerCase().includes(search.toLowerCase());
+        const matchesCategory = !filterCat || task.cat === filterCat;
+        const matchesStatus =
+          filterStatus === 'all' || (filterStatus === 'done' ? task.done : !task.done);
+
+        return matchesSearch && matchesCategory && matchesStatus;
+      })
+      .sort((a, b) => compareTasks(a, b, sortKey, sortDirection));
+  }, [tasks, search, filterCat, filterStatus, sortKey, sortDirection]);
 
   const toggleTask = async (taskId: string) => {
     await toggleTaskCompletion(taskId, syncTasks);
@@ -52,83 +73,223 @@ export default function Tasks() {
     await deleteTaskFromCloud(taskId);
   };
 
-  const filteredTasks = filterCat ? tasks.filter((task) => task.cat === filterCat) : tasks;
+  const requestSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortKey(key);
+    setSortDirection(key === 'name' || key === 'cat' ? 'asc' : 'desc');
+  };
 
   return (
-    <div className="max-w-5xl mx-auto p-5 space-y-5">
-      <div className="flex items-center justify-between gap-3">
+    <div className="mx-auto max-w-7xl space-y-5 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="dayflow-kicker">Library</p>
-          <h1 className="dayflow-h1">All tasks</h1>
+          <h1 className="dayflow-h1">Task table</h1>
+          <p className="dayflow-body mt-2">Sort, filter, scan, and jump straight into edits or focus sessions.</p>
         </div>
-        <select
-          value={filterCat}
-          onChange={(event) => setFilterCat(event.target.value)}
-          className="px-3 py-3 rounded-[16px] bg-[rgba(255,255,255,0.05)] border border-[var(--border)] text-[13px] text-[var(--text)] outline-none"
-        >
-          <option value="">All categories</option>
-          <option value="work">Work</option>
-          <option value="health">Health</option>
-          <option value="study">Study</option>
-          <option value="personal">Personal</option>
-        </select>
+        <button type="button" className="dayflow-primary-button" onClick={() => openTaskModal()}>
+          Add task
+        </button>
       </div>
 
-      {filteredTasks.length === 0 ? (
-        <div className="dayflow-empty-card dayflow-surface-card">
-          <p className="dayflow-body">No tasks found. Add one from the floating action button.</p>
+      <div className="dayflow-surface-card p-5">
+        <div className="dayflow-task-table-toolbar">
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search task name or notes"
+            className="dayflow-task-search"
+          />
+          <select
+            value={filterCat}
+            onChange={(event) => setFilterCat(event.target.value)}
+            className="dayflow-task-filter"
+          >
+            <option value="">All categories</option>
+            <option value="work">Work</option>
+            <option value="health">Health</option>
+            <option value="study">Study</option>
+            <option value="personal">Personal</option>
+          </select>
+          <select
+            value={filterStatus}
+            onChange={(event) => setFilterStatus(event.target.value as typeof filterStatus)}
+            className="dayflow-task-filter"
+          >
+            <option value="all">All status</option>
+            <option value="open">Open only</option>
+            <option value="done">Completed only</option>
+          </select>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredTasks.map((task) => (
-            <article key={task.id} className="dayflow-task-card dayflow-surface-card">
-              <button
-                onClick={() => void toggleTask(task.id)}
-                className={`dayflow-task-check ${task.done ? 'is-done' : ''}`}
-                aria-label={task.done ? `Mark ${task.name} as incomplete` : `Mark ${task.name} as complete`}
-              >
-                <span />
-              </button>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className={`dayflow-task-title ${task.done ? 'is-done' : ''}`}>{task.name}</div>
-                    <div className="dayflow-caption mt-1">
-                      {task.date}
-                      {task.time ? ` - ${task.time}` : ''}
-                      {' - '}
-                      {task.dur} min
-                    </div>
-                    {task.notes && <div className="dayflow-body mt-2">{task.notes}</div>}
-                  </div>
-                  <span className="dayflow-category-pill">{CATEGORY_LABELS[task.cat]}</span>
-                </div>
-              </div>
-              {!task.done && getTaskFocusMode(task.id) && (
-                <button
-                  onClick={() => navigate(`/focus?taskId=${encodeURIComponent(task.id)}`)}
-                  className="text-[var(--accent)] p-2 hover:bg-[var(--surface3)] rounded-[12px] transition-colors"
-                  aria-label={`Start focus mode for ${task.name}`}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-                    <path d="M12 3l7 4v10l-7 4-7-4V7l7-4z" />
-                    <path d="M12 8v4l3 2" />
-                  </svg>
-                </button>
-              )}
-              <button
-                onClick={() => void deleteTask(task.id)}
-                className="text-[var(--danger)] p-2 hover:bg-[var(--surface3)] rounded-[12px] transition-colors"
-                aria-label={`Delete ${task.name}`}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
-                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                </svg>
-              </button>
-            </article>
-          ))}
+
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-[12px] text-[var(--muted2)]">
+          <span>{filteredTasks.length} visible</span>
+          <span>-</span>
+          <span>Sorted by {columnLabel(sortKey)} {sortDirection === 'asc' ? 'ascending' : 'descending'}</span>
         </div>
-      )}
+
+        {filteredTasks.length === 0 ? (
+          <div className="dayflow-empty-card mt-5 dayflow-surface-card">
+            <p className="dayflow-body">No tasks match the current filters.</p>
+          </div>
+        ) : (
+          <div className="dayflow-task-table-wrap">
+            <table className="dayflow-task-table">
+              <thead>
+                <tr>
+                  <SortableHead label="Done" sortKey="done" currentKey={sortKey} direction={sortDirection} onSort={requestSort} />
+                  <SortableHead label="Task" sortKey="name" currentKey={sortKey} direction={sortDirection} onSort={requestSort} />
+                  <SortableHead label="Date" sortKey="date" currentKey={sortKey} direction={sortDirection} onSort={requestSort} />
+                  <SortableHead label="Time" sortKey="time" currentKey={sortKey} direction={sortDirection} onSort={requestSort} />
+                  <SortableHead label="Duration" sortKey="dur" currentKey={sortKey} direction={sortDirection} onSort={requestSort} />
+                  <SortableHead label="Category" sortKey="cat" currentKey={sortKey} direction={sortDirection} onSort={requestSort} />
+                  <th>Focus</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTasks.map((task) => (
+                  <tr key={task.id}>
+                    <td>
+                      <button
+                        onClick={() => void toggleTask(task.id)}
+                        className={`dayflow-task-check ${task.done ? 'is-done' : ''}`}
+                        aria-label={task.done ? `Mark ${task.name} as incomplete` : `Mark ${task.name} as complete`}
+                      >
+                        <span />
+                      </button>
+                    </td>
+                    <td>
+                      <div className="dayflow-task-table-title-wrap">
+                        <div className={`dayflow-task-title ${task.done ? 'is-done' : ''}`}>{task.name}</div>
+                        {task.notes && <div className="dayflow-caption">{task.notes}</div>}
+                      </div>
+                    </td>
+                    <td>{task.date}</td>
+                    <td>{task.time || 'Any time'}</td>
+                    <td>{task.dur} min</td>
+                    <td>
+                      <span className="dayflow-category-pill">{CATEGORY_LABELS[task.cat]}</span>
+                    </td>
+                    <td>
+                      {!task.done && getTaskFocusMode(task.id) ? (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/focus?taskId=${encodeURIComponent(task.id)}`)}
+                          className="dayflow-task-inline-button is-accent"
+                        >
+                          Focus
+                        </button>
+                      ) : (
+                        <span className="dayflow-caption">-</span>
+                      )}
+                    </td>
+                    <td>
+                      <div className="dayflow-task-row-actions">
+                        <button
+                          type="button"
+                          onClick={() => openTaskModal({ taskId: task.id })}
+                          className="dayflow-task-inline-button"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void deleteTask(task.id)}
+                          className="dayflow-task-inline-button is-danger"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
+}
+
+function SortableHead({
+  label,
+  sortKey,
+  currentKey,
+  direction,
+  onSort,
+}: {
+  label: string;
+  sortKey: SortKey;
+  currentKey: SortKey;
+  direction: SortDirection;
+  onSort: (key: SortKey) => void;
+}) {
+  const active = currentKey === sortKey;
+  const arrow = !active ? '' : direction === 'asc' ? '↑' : '↓';
+
+  return (
+    <th>
+      <button type="button" onClick={() => onSort(sortKey)} className={`dayflow-task-sort ${active ? 'is-active' : ''}`}>
+        {label}
+        <span>{arrow}</span>
+      </button>
+    </th>
+  );
+}
+
+function compareTasks(a: Task, b: Task, sortKey: SortKey, direction: SortDirection) {
+  const factor = direction === 'asc' ? 1 : -1;
+
+  const normalizeTime = (time?: string) => time || '99:99';
+
+  let result = 0;
+  switch (sortKey) {
+    case 'name':
+      result = a.name.localeCompare(b.name);
+      break;
+    case 'date':
+      result = a.date.localeCompare(b.date);
+      break;
+    case 'time':
+      result = normalizeTime(a.time).localeCompare(normalizeTime(b.time));
+      break;
+    case 'dur':
+      result = a.dur - b.dur;
+      break;
+    case 'cat':
+      result = a.cat.localeCompare(b.cat);
+      break;
+    case 'done':
+      result = Number(a.done) - Number(b.done);
+      break;
+  }
+
+  if (result === 0) {
+    result = a.created - b.created;
+  }
+
+  return result * factor;
+}
+
+function columnLabel(key: SortKey) {
+  switch (key) {
+    case 'name':
+      return 'task';
+    case 'date':
+      return 'date';
+    case 'time':
+      return 'time';
+    case 'dur':
+      return 'duration';
+    case 'cat':
+      return 'category';
+    case 'done':
+      return 'status';
+  }
 }
