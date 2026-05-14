@@ -41,8 +41,8 @@ export default function ReminderManager() {
             if ('Notification' in window && Notification.permission === 'granted') {
               new Notification(title, {
                 body: notificationBody(task.time),
-                icon: '/dayflow-app-icon.jpg',
-                badge: '/dayflow-app-icon.jpg',
+                icon: '/dayflow-app-icon.png',
+                badge: '/dayflow-app-icon.png',
                 tag: `task-${task.id}`,
                 renotify: true,
               });
