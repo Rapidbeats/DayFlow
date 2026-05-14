@@ -144,7 +144,7 @@ export default function Settings() {
 
       <div className="p-6 rounded-[var(--r-lg)] border border-[var(--border)] dayflow-install-card" style={{ background: 'var(--surface)' }}>
         <div className="flex items-center gap-4 mb-4">
-          <img src="/dayflow-app-icon.jpg" alt="DayFlow" className="w-16 h-16 rounded-[18px] border border-[var(--border)]" />
+          <img src="/dayflow-app-icon.png" alt="DayFlow" className="w-16 h-16 rounded-[18px] border border-[var(--border)]" />
           <div>
             <div style={{ fontFamily: 'var(--ff-head)', fontSize: '18px', fontWeight: 700 }}>Install DayFlow</div>
             <div className="text-[13px] text-[var(--muted2)] mt-1">
