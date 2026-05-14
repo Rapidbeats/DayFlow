@@ -844,6 +844,397 @@
   backdrop-filter: blur(14px);
 }
 
+.dayflow-focus-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at 50% 40%, rgba(var(--accent-rgb), 0.14), transparent 48%),
+    linear-gradient(180deg, rgba(7, 15, 22, 0.98), rgba(8, 18, 24, 0.96));
+  min-height: 640px;
+  padding: 24px;
+}
+
+.dayflow-focus-hero-glow {
+  position: absolute;
+  inset: auto;
+  width: 540px;
+  height: 540px;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.dayflow-focus-badge {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(7, 18, 20, 0.44);
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.dayflow-focus-ring-wrap {
+  position: relative;
+  z-index: 1;
+  margin: 24px auto 18px;
+  width: min(100%, 430px);
+  aspect-ratio: 1;
+}
+
+.dayflow-focus-ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.dayflow-focus-ring-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 16;
+}
+
+.dayflow-focus-ring-progress {
+  fill: none;
+  stroke-width: 16;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s ease;
+}
+
+.dayflow-focus-ring-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 36px;
+}
+
+.dayflow-focus-ring-time {
+  font-size: clamp(56px, 10vw, 92px);
+  line-height: 0.95;
+  font-weight: 800;
+  letter-spacing: -0.08em;
+  color: var(--text);
+}
+
+.dayflow-focus-ring-label {
+  margin-top: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.dayflow-focus-audio-bars {
+  display: inline-flex;
+  align-items: end;
+  gap: 5px;
+  margin-top: 18px;
+  min-height: 24px;
+}
+
+.dayflow-focus-audio-bar {
+  width: 5px;
+  height: 8px;
+  border-radius: 999px;
+  opacity: 0.45;
+}
+
+.dayflow-focus-audio-bar.is-playing {
+  animation: dayflow-audio-bounce 1.15s ease-in-out infinite alternate;
+  opacity: 1;
+}
+
+.dayflow-focus-break-copy {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dayflow-focus-break-guide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.dayflow-focus-break-phase {
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.dayflow-focus-break-count {
+  font-size: 52px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.08em;
+  color: var(--text);
+}
+
+.dayflow-focus-break-tip {
+  max-width: 280px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted2);
+}
+
+.dayflow-focus-pause-wrap {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.dayflow-focus-pause-button {
+  width: 82px;
+  height: 82px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(9, 18, 24, 0.88);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.dayflow-focus-pause-button:hover {
+  transform: translateY(-1px) scale(1.02);
+}
+
+.dayflow-focus-quote {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 22px auto 0;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 14px 18px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.dayflow-focus-stats-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px;
+}
+
+.dayflow-focus-stat-card {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 14px 16px;
+}
+
+.dayflow-focus-stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.dayflow-focus-stat-value {
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+@keyframes dayflow-audio-bounce {
+  from { height: 8px; transform: translateY(0); }
+  to { height: 22px; transform: translateY(-1px); }
+}
+
+.dayflow-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+
+.dayflow-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dayflow-calendar-cell {
+  min-height: 84px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  padding: 10px;
+  text-align: left;
+  transition: transform 0.18s ease, background 0.18s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.dayflow-calendar-cell:hover {
+  transform: translateY(-1px);
+}
+
+.dayflow-calendar-count {
+  min-width: 20px;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted2);
+  background: rgba(255, 255, 255, 0.05);
+  text-align: center;
+}
+
+.dayflow-calendar-count.has-tasks {
+  color: var(--text);
+  background: rgba(var(--accent-rgb), 0.12);
+}
+
+.dayflow-task-table-toolbar {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(220px, 1.3fr) repeat(2, minmax(170px, 0.7fr));
+}
+
+.dayflow-task-search,
+.dayflow-task-filter {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+}
+
+.dayflow-task-table-wrap {
+  margin-top: 18px;
+  overflow-x: auto;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.dayflow-task-table {
+  width: 100%;
+  min-width: 940px;
+  border-collapse: collapse;
+}
+
+.dayflow-task-table th,
+.dayflow-task-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  vertical-align: top;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.dayflow-task-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(12, 17, 28, 0.96);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted2);
+}
+
+.dayflow-task-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dayflow-task-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.dayflow-task-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+
+.dayflow-task-sort.is-active {
+  color: var(--accent);
+}
+
+.dayflow-task-table-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 180px;
+}
+
+.dayflow-task-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dayflow-task-inline-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.dayflow-task-inline-button.is-accent {
+  border-color: rgba(var(--accent-rgb), 0.22);
+  background: rgba(var(--accent-rgb), 0.11);
+  color: var(--accent);
+}
+
+.dayflow-task-inline-button.is-danger {
+  border-color: rgba(239, 68, 68, 0.18);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger);
+}
+
 .dayflow-focus-cycle-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1036,6 +1427,10 @@
     bottom: 32px !important;
     z-index: 90;
   }
+
+  .dayflow-focus-hero {
+    min-height: 560px;
+  }
 }
 
 @media (max-width: 1023px) {
@@ -1114,6 +1509,51 @@
     gap: 12px;
   }
 
+  .dayflow-focus-hero {
+    min-height: auto;
+    padding: 20px 18px 24px;
+  }
+
+  .dayflow-focus-ring-wrap {
+    width: min(100%, 360px);
+  }
+
+  .dayflow-focus-quote {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .dayflow-focus-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dayflow-calendar-weekdays {
+    gap: 4px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+
+  .dayflow-calendar-grid {
+    gap: 4px;
+  }
+
+  .dayflow-calendar-cell {
+    min-height: 58px;
+    border-radius: 14px;
+    padding: 7px 6px;
+  }
+
+  .dayflow-calendar-count {
+    min-width: 18px;
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
+  .dayflow-task-table-toolbar {
+    grid-template-columns: 1fr;
+  }
+
   .dayflow-timeline-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     min-width: 0;
@@ -1156,16 +1596,11 @@
     padding: 5px 4px;
   }
 
-  .dayflow-breath-square-wrap {
-    width: 220px;
-    height: 220px;
+  .dayflow-focus-ring-time {
+    font-size: 60px;
   }
 
-  .dayflow-breath-square {
-    inset: 18px;
-  }
-
-  .dayflow-breath-count {
-    font-size: 72px;
+  .dayflow-focus-break-count {
+    font-size: 42px;
   }
 }
