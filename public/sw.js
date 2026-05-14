@@ -1,5 +1,5 @@
-const CACHE_NAME = 'dayflow-shell-v2';
-const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/dayflow-logo.png', '/dayflow-app-icon.jpg', '/dayflow-app-icon-512.jpg', '/_redirects'];
+const CACHE_NAME = 'dayflow-shell-v3';
+const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/dayflow-logo.png', '/dayflow-app-icon.png', '/dayflow-app-icon-512.png', '/_redirects'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
