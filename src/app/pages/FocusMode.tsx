@@ -247,8 +247,8 @@ export default function FocusMode() {
   const RING_R = 140;
   const RING_CIRCUM = 2 * Math.PI * RING_R;
   const ringOffset = RING_CIRCUM - progress.progress * RING_CIRCUM;
-  const ringDotX = 160 + RING_R * Math.sin(2 * Math.PI * progress.progress);
-  const ringDotY = 160 - RING_R * Math.cos(2 * Math.PI * progress.progress);
+  const ringDotX = 160 + RING_R * Math.cos(2 * Math.PI * progress.progress);
+  const ringDotY = 160 + RING_R * Math.sin(2 * Math.PI * progress.progress);
   const statusItems = [
     { label: 'Completed today', value: `${cycleBars.filter((bar) => bar.focusState === 'done').length} / ${cycleBars.length} blocks` },
     { label: 'Focus time', value: `${Math.round(completedFocusMinutes)}m done` },
