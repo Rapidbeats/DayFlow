@@ -386,33 +386,48 @@ export default function FocusMode() {
           />
 
           {showBreakUi ? (
-            <div className="relative z-10 flex w-full flex-col items-center gap-5 px-2 sm:px-6">
+            <div className="relative z-10 flex w-full flex-col items-center gap-6 px-2 sm:px-6">
               <div className="text-[11px] font-[700] uppercase tracking-[0.22em] text-white/40">Recovery Break</div>
 
-              <BreathingGuide
-                themeRgb={accentRgb}
-                stepLabel={breakPhase.label}
-                stepRemaining={breakPhase.remaining}
-              />
-
-              <div className="w-full max-w-sm">
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/8">
-                  <div
-                    className="h-full rounded-full transition-[width] duration-700"
-                    style={{
-                      width: `${Math.min(100, Math.max(0, progress.progress * 100))}%`,
-                      background: `rgb(${accentRgb})`,
-                    }}
-                  />
+              <div className="dayflow-focus-break-panel">
+                <div className="dayflow-focus-break-square-wrap">
+                  <div className="dayflow-focus-break-square">
+                    <div className="dayflow-focus-break-inner">
+                      <div className="text-[13px] font-[700] uppercase tracking-[0.26em] text-white/40">
+                        Break Time
+                      </div>
+                      <BreathingGuide
+                        themeRgb={accentRgb}
+                        stepLabel={breakPhase.label}
+                        stepRemaining={breakPhase.remaining}
+                      />
+                      <div className="dayflow-focus-break-tip">
+                        {breakTipForSegment(session.currentSegmentIndex)}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-2 text-center text-[13px] text-white/40">
-                  {formatClock(progress.remainingSec)} remaining
+
+                <div className="w-full max-w-sm">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/8">
+                    <div
+                      className="h-full rounded-full transition-[width] duration-700"
+                      style={{
+                        width: `${Math.min(100, Math.max(0, progress.progress * 100))}%`,
+                        background: `rgb(${accentRgb})`,
+                      }}
+                    />
+                  </div>
+                  <div className="mt-2 text-center text-[13px] text-white/40">
+                    {formatClock(progress.remainingSec)} remaining
+                  </div>
+                </div>
+
+                <div className="dayflow-focus-break-note">
+                  <span style={{ color: `rgb(${accentRgb})` }}>+</span>
+                  {breakPhase.label} for {Math.ceil(breakPhase.remaining)}s, then ease into the next phase.
                 </div>
               </div>
-
-              <p className="max-w-sm text-center text-[14px] leading-6 text-white/50">
-                {breakTipForSegment(session.currentSegmentIndex)}
-              </p>
             </div>
           ) : (
             <div className="relative z-10 flex flex-col items-center gap-6">
