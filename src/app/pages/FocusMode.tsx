@@ -247,6 +247,8 @@ export default function FocusMode() {
   const RING_R = 140;
   const RING_CIRCUM = 2 * Math.PI * RING_R;
   const ringOffset = RING_CIRCUM - progress.progress * RING_CIRCUM;
+  const ringDotX = 160 + RING_R * Math.sin(2 * Math.PI * progress.progress);
+  const ringDotY = 160 - RING_R * Math.cos(2 * Math.PI * progress.progress);
   const statusItems = [
     { label: 'Completed today', value: `${cycleBars.filter((bar) => bar.focusState === 'done').length} / ${cycleBars.length} blocks` },
     { label: 'Focus time', value: `${Math.round(completedFocusMinutes)}m done` },
@@ -441,19 +443,14 @@ export default function FocusMode() {
                       filter: `drop-shadow(0 0 8px rgba(${accentRgb},0.7))`,
                     }}
                   />
+                  <circle
+                    cx={ringDotX}
+                    cy={ringDotY}
+                    r="7"
+                    fill={`rgb(${accentRgb})`}
+                    style={{ filter: `drop-shadow(0 0 16px rgba(${accentRgb},0.8))` }}
+                  />
                 </svg>
-
-                <div
-                  className="absolute rounded-full"
-                  style={{
-                    width: 14,
-                    height: 14,
-                    background: `rgb(${accentRgb})`,
-                    boxShadow: `0 0 16px 4px rgba(${accentRgb},0.8)`,
-                    top: `${160 - RING_R * Math.cos(2 * Math.PI * progress.progress) - 7}px`,
-                    left: `${160 + RING_R * Math.sin(2 * Math.PI * progress.progress) - 7}px`,
-                  }}
-                />
 
                 <div className="relative z-10 flex flex-col items-center gap-3">
                   <div className="text-[clamp(56px,14vw,64px)] font-[900] leading-none tracking-[-0.05em] text-white tabular-nums">
