@@ -244,9 +244,9 @@ export default function FocusMode() {
   const remainingFocusMinutes = session ? Math.max(totalFocusMinutes - completedFocusMinutes, 0) : 0;
   const remainingRuntimeMinutes = session ? Math.max(totalSessionMinutes - completedSessionMinutes, 0) : 0;
   const runtimeProgressPct = totalSessionMinutes > 0 ? (completedSessionMinutes / totalSessionMinutes) * 100 : 0;
-  const ringCircumference = 2 * Math.PI * 164;
-  const ringOffset = ringCircumference - ringCircumference * progress.progress;
-  const currentModeLabel = showBreakUi ? 'Break Time' : 'Focus Time';
+  const RING_R = 140;
+  const RING_CIRCUM = 2 * Math.PI * RING_R;
+  const ringOffset = RING_CIRCUM - progress.progress * RING_CIRCUM;
   const statusItems = [
     { label: 'Completed today', value: `${cycleBars.filter((bar) => bar.focusState === 'done').length} / ${cycleBars.length} blocks` },
     { label: 'Focus time', value: `${Math.round(completedFocusMinutes)}m done` },
@@ -370,83 +370,141 @@ export default function FocusMode() {
       </div>
 
       <div className="grid gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <section className="dayflow-focus-hero">
-          <div className="dayflow-focus-hero-glow" style={{ background: `radial-gradient(circle, rgba(${accentRgb},0.24) 0%, transparent 66%)` }} />
-          <div className="dayflow-focus-badge" style={{ borderColor: `rgba(${accentRgb},0.22)`, color: `rgb(${accentRgb})` }}>
-            {showBreakUi ? 'Reset Break' : 'Deep Focus'}
-          </div>
+        <section
+          className="relative overflow-hidden rounded-[24px] px-4 py-8 sm:px-6 sm:py-10"
+          style={{
+            background: `radial-gradient(ellipse at center top, rgba(${accentRgb},0.13) 0%, transparent 65%), rgba(255,255,255,0.02)`,
+            border: '1px solid rgba(255,255,255,0.07)',
+            minHeight: '420px',
+          }}
+        >
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ background: `radial-gradient(circle at 50% 45%, rgba(${accentRgb},0.09) 0%, transparent 60%)` }}
+          />
 
-          <div className="dayflow-focus-ring-wrap">
-            <svg viewBox="0 0 380 380" className="dayflow-focus-ring-svg" aria-hidden="true">
-              <circle cx="190" cy="190" r="164" className="dayflow-focus-ring-track" />
-              <circle
-                cx="190"
-                cy="190"
-                r="164"
-                className="dayflow-focus-ring-progress"
-                style={{
-                  stroke: `rgb(${accentRgb})`,
-                  strokeDasharray: ringCircumference,
-                  strokeDashoffset: ringOffset,
-                  filter: `drop-shadow(0 0 16px rgba(${accentRgb},0.45))`,
-                }}
+          {showBreakUi ? (
+            <div className="relative z-10 flex w-full flex-col items-center gap-5 px-2 sm:px-6">
+              <div className="text-[11px] font-[700] uppercase tracking-[0.22em] text-white/40">Recovery Break</div>
+
+              <BreathingGuide
+                themeRgb={accentRgb}
+                stepLabel={breakPhase.label}
+                stepRemaining={breakPhase.remaining}
               />
-            </svg>
 
-            <div className="dayflow-focus-ring-content">
-              <div className="dayflow-focus-ring-time">{formatClock(progress.remainingSec)}</div>
-              <div className="dayflow-focus-ring-label">{currentModeLabel}</div>
-              <div className="dayflow-focus-audio-bars" aria-hidden="true">
-                {Array.from({ length: 5 }, (_, index) => (
-                  <span
-                    key={index}
-                    className={`dayflow-focus-audio-bar ${audioPrefs.enabled && !session.paused ? 'is-playing' : ''}`}
-                    style={{ animationDelay: `${index * 0.1}s`, background: `rgba(${accentRgb}, ${0.34 + index * 0.08})` }}
+              <div className="w-full max-w-sm">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/8">
+                  <div
+                    className="h-full rounded-full transition-[width] duration-700"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, progress.progress * 100))}%`,
+                      background: `rgb(${accentRgb})`,
+                    }}
                   />
-                ))}
+                </div>
+                <div className="mt-2 text-center text-[13px] text-white/40">
+                  {formatClock(progress.remainingSec)} remaining
+                </div>
               </div>
-              {showBreakUi ? (
-                <div className="dayflow-focus-break-panel">
-                  <div className="dayflow-focus-break-square-wrap">
-                    <div className="dayflow-focus-break-square">
-                      <div className="dayflow-focus-break-inner">
-                        <div className="dayflow-focus-break-phase">{breakPhase.label}</div>
-                        <div className="dayflow-focus-break-tip">{breakTipForSegment(session.currentSegmentIndex)}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="dayflow-focus-break-note">
-                    <span style={{ color: `rgb(${accentRgb})` }}>+</span>
-                    {breakPhase.label} for {Math.ceil(breakPhase.remaining)}s, then flow onward.
-                  </div>
-                </div>
-              ) : (
-                <div className="dayflow-focus-quote">
-                  <span style={{ color: `rgb(${accentRgb})` }}>+</span>
-                  {FOCUS_QUOTES[quoteIndex]}
-                </div>
-              )}
+
+              <p className="max-w-sm text-center text-[14px] leading-6 text-white/50">
+                {breakTipForSegment(session.currentSegmentIndex)}
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="relative z-10 flex flex-col items-center gap-6">
+              <div className="text-[11px] font-[700] uppercase tracking-[0.22em] text-white/40">Deep Focus</div>
 
-          <div className="dayflow-focus-pause-wrap">
-            <button
-              type="button"
-              onClick={() => {
-                if (session.paused) {
-                  setSession(resumeFocusSession(session, session.pausedRemainingSec || progress.remainingSec));
-                } else {
-                  setSession(pauseFocusSession(session, progress.remainingSec));
-                }
-                void syncTasks();
-              }}
-              className="dayflow-focus-pause-button"
-              style={{ borderColor: `rgba(${accentRgb},0.35)`, boxShadow: `0 0 24px rgba(${accentRgb},0.18)` }}
-            >
-              {session.paused ? <Play className="h-6 w-6" /> : <Pause className="h-6 w-6" />}
-            </button>
-          </div>
+              <div
+                className="relative flex items-center justify-center"
+                style={{ width: 'min(100%, 320px)', aspectRatio: '1 / 1' }}
+              >
+                <svg
+                  viewBox="0 0 320 320"
+                  className="absolute inset-0 h-full w-full -rotate-90"
+                  aria-hidden="true"
+                >
+                  <circle cx="160" cy="160" r={RING_R} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="6" />
+                  <circle
+                    cx="160"
+                    cy="160"
+                    r={RING_R}
+                    fill="none"
+                    stroke={`rgb(${accentRgb})`}
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeDasharray={RING_CIRCUM}
+                    strokeDashoffset={ringOffset}
+                    style={{
+                      transition: 'stroke-dashoffset 1s linear',
+                      filter: `drop-shadow(0 0 8px rgba(${accentRgb},0.7))`,
+                    }}
+                  />
+                </svg>
 
+                <div
+                  className="absolute rounded-full"
+                  style={{
+                    width: 14,
+                    height: 14,
+                    background: `rgb(${accentRgb})`,
+                    boxShadow: `0 0 16px 4px rgba(${accentRgb},0.8)`,
+                    top: `${160 - RING_R * Math.cos(2 * Math.PI * progress.progress) - 7}px`,
+                    left: `${160 + RING_R * Math.sin(2 * Math.PI * progress.progress) - 7}px`,
+                  }}
+                />
+
+                <div className="relative z-10 flex flex-col items-center gap-3">
+                  <div className="text-[clamp(56px,14vw,64px)] font-[900] leading-none tracking-[-0.05em] text-white tabular-nums">
+                    {formatClock(progress.remainingSec)}
+                  </div>
+
+                  {audioPrefs.enabled && !session.paused && (
+                    <div className="flex h-5 items-end gap-[3px]" aria-hidden="true">
+                      {Array.from({ length: 7 }).map((_, index) => (
+                        <div
+                          key={index}
+                          className="w-[3px] rounded-full"
+                          style={{
+                            background: `rgb(${accentRgb})`,
+                            height: `${30 + Math.sin(Date.now() / 300 + index * 0.8) * 40}%`,
+                            animation: `audioBar${index % 3} ${0.6 + index * 0.1}s ease-in-out infinite alternate`,
+                            opacity: 0.7 + index * 0.04,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (session.paused) {
+                        setSession(resumeFocusSession(session, session.pausedRemainingSec || progress.remainingSec));
+                      } else {
+                        setSession(pauseFocusSession(session, progress.remainingSec));
+                      }
+                      void syncTasks();
+                    }}
+                    className="flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-white/8 transition hover:bg-white/15 active:scale-95"
+                  >
+                    {session.paused
+                      ? <Play className="ml-0.5 h-5 w-5 text-white" />
+                      : <Pause className="h-5 w-5 text-white" />}
+                  </button>
+                </div>
+              </div>
+
+              <div
+                className="flex items-center gap-2 rounded-[14px] px-5 py-3 text-center text-[13px] text-white/60"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+              >
+                <span style={{ color: `rgb(${accentRgb})` }}>⚡</span>
+                {FOCUS_QUOTES[quoteIndex]}
+              </div>
+            </div>
+          )}
         </section>
 
         <aside className="flex flex-col gap-4">
@@ -715,6 +773,12 @@ export default function FocusMode() {
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes audioBar0 { from { height: 25% } to { height: 80% } }
+        @keyframes audioBar1 { from { height: 40% } to { height: 65% } }
+        @keyframes audioBar2 { from { height: 20% } to { height: 90% } }
+      `}</style>
     </div>
   );
 
