@@ -401,16 +401,31 @@ export default function FocusMode() {
                   <span
                     key={index}
                     className={`dayflow-focus-audio-bar ${audioPrefs.enabled && !session.paused ? 'is-playing' : ''}`}
-                    style={{ animationDelay: `${index * 0.12}s`, background: `rgba(${accentRgb}, ${0.4 + index * 0.1})` }}
+                    style={{ animationDelay: `${index * 0.1}s`, background: `rgba(${accentRgb}, ${0.34 + index * 0.08})` }}
                   />
                 ))}
               </div>
               {showBreakUi ? (
-                <div className="dayflow-focus-break-copy">
-                  <div className="dayflow-focus-break-phase">{breakPhase.label}</div>
-                  <div className="dayflow-focus-break-tip">{breakTipForSegment(session.currentSegmentIndex)}</div>
+                <div className="dayflow-focus-break-panel">
+                  <div className="dayflow-focus-break-square-wrap">
+                    <div className="dayflow-focus-break-square">
+                      <div className="dayflow-focus-break-inner">
+                        <div className="dayflow-focus-break-phase">{breakPhase.label}</div>
+                        <div className="dayflow-focus-break-tip">{breakTipForSegment(session.currentSegmentIndex)}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="dayflow-focus-break-note">
+                    <span style={{ color: `rgb(${accentRgb})` }}>+</span>
+                    {breakPhase.label} for {Math.ceil(breakPhase.remaining)}s, then flow onward.
+                  </div>
                 </div>
-              ) : null}
+              ) : (
+                <div className="dayflow-focus-quote">
+                  <span style={{ color: `rgb(${accentRgb})` }}>+</span>
+                  {FOCUS_QUOTES[quoteIndex]}
+                </div>
+              )}
             </div>
           </div>
 
@@ -432,10 +447,6 @@ export default function FocusMode() {
             </button>
           </div>
 
-          <div className="dayflow-focus-quote">
-            <span style={{ color: `rgb(${accentRgb})` }}>+</span>
-            {showBreakUi ? `${breakPhase.label} for ${Math.ceil(breakPhase.remaining)}s, then flow onward.` : FOCUS_QUOTES[quoteIndex]}
-          </div>
         </section>
 
         <aside className="flex flex-col gap-4">
