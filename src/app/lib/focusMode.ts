@@ -31,7 +31,14 @@ export interface FocusSession {
   skippedBreakIndices: number[];
 }
 
-export type FocusAudioCategory = 'lofi' | 'rain';
+export type FocusAudioCategory = 'lofi' | 'rain' | 'flow';
+
+export interface FocusTrack {
+  src: string;
+  title: string;
+  intensity: 'Low' | 'Medium' | 'High';
+  artworkSeed: string;
+}
 
 export interface FocusAudioPrefs {
   enabled: boolean;
@@ -39,23 +46,106 @@ export interface FocusAudioPrefs {
   volume: number; // 0–1
 }
 
-export const LOFI_TRACKS = [
-  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Relax.your.mind.mp3',
-  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Childish.Gambino.-.Lofi.cover.mp3',
-  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Wandering.Another.World.mp3',
-  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Starside.Groove.mp3',
-  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Lunar.Drive.mp3',
+export const LOFI_TRACKS: FocusTrack[] = [
+  {
+    src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Relax.your.mind.mp3',
+    title: 'Relax Your Mind',
+    intensity: 'Low',
+    artworkSeed: 'lofi-mind',
+  },
+  {
+    src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Childish.Gambino.-.Lofi.cover.mp3',
+    title: 'Lofi Cover',
+    intensity: 'Medium',
+    artworkSeed: 'lofi-cover',
+  },
+  {
+    src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Wandering.Another.World.mp3',
+    title: 'Wandering Another World',
+    intensity: 'Low',
+    artworkSeed: 'lofi-world',
+  },
+  {
+    src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Starside.Groove.mp3',
+    title: 'Starside Groove',
+    intensity: 'Medium',
+    artworkSeed: 'lofi-starside',
+  },
+  {
+    src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Lunar.Drive.mp3',
+    title: 'Lunar Drive',
+    intensity: 'Medium',
+    artworkSeed: 'lofi-lunar',
+  },
 ];
 
-export const RAIN_TRACKS = [
-  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/RS_Track.1.wav',
-  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/RS_Track.2.wav',
+export const RAIN_TRACKS: FocusTrack[] = [
+  {
+    src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/RS_Track.1.wav',
+    title: 'Storm Veil',
+    intensity: 'Low',
+    artworkSeed: 'rain-veil',
+  },
+  {
+    src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/RS_Track.2.wav',
+    title: 'Night Rain',
+    intensity: 'Low',
+    artworkSeed: 'rain-night',
+  },
 ];
 
-export const BREAK_TRACKS = [
-  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/BT_Let.s.Go.Home.mp3',
-  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/BT_U.In.My.Arms.mp3',
-  'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/BT_Top.Ten.mp3',
+export const FLOW_STATE_TRACKS: FocusTrack[] = [
+  {
+    src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/FB_1_Aloft.-.Airlines.mp3',
+    title: 'Aloft - Airlines',
+    intensity: 'Medium',
+    artworkSeed: 'flow-aloft',
+  },
+  {
+    src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/FB_2_VonnBoyd.-.Oblivion.mp3',
+    title: 'VonnBoyd - Oblivion',
+    intensity: 'High',
+    artworkSeed: 'flow-oblivion',
+  },
+  {
+    src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/FB_3_BlauDisS.-.eight.twenty.two.mp3',
+    title: 'eight.twenty.two',
+    intensity: 'Medium',
+    artworkSeed: 'flow-eight',
+  },
+  {
+    src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/FB_4_Kasper.Klick.-.Salvation.mp3',
+    title: 'Kasper Klick - Salvation',
+    intensity: 'High',
+    artworkSeed: 'flow-salvation',
+  },
+  {
+    src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/FB_5_ocxone.-.Origin.mp3',
+    title: 'ocxone - Origin',
+    intensity: 'High',
+    artworkSeed: 'flow-origin',
+  },
+];
+
+export const BREAK_TRACKS: FocusTrack[] = [
+  {
+    src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/BT_Let.s.Go.Home.mp3',
+    title: 'Let’s Go Home',
+    intensity: 'Low',
+    artworkSeed: 'break-home',
+  },
+  {
+    src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/BT_U.In.My.Arms.mp3',
+    title: 'U In My Arms',
+    intensity: 'Low',
+    artworkSeed: 'break-arms',
+  },
+  {
+    src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/BT_Top.Ten.mp3',
+    title: 'Top Ten',
+    intensity: 'Medium',
+    artworkSeed: 'break-topten',
+  },
 ];
 
 export function getAudioPrefs(): FocusAudioPrefs {
@@ -66,7 +156,7 @@ export function saveAudioPrefs(prefs: FocusAudioPrefs) {
   localStorage.setItem(AUDIO_PREFS_KEY, JSON.stringify(prefs));
 }
 
-export function pickRandomTrack(tracks: string[]): string {
+export function pickRandomTrack(tracks: FocusTrack[]): FocusTrack {
   return tracks[Math.floor(Math.random() * tracks.length)];
 }
 
