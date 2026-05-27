@@ -77,7 +77,7 @@ const FOCUS_QUOTES = [
 ];
 
 const PHASE_STEPS = ['Inhale', 'Hold', 'Exhale', 'Hold'] as const;
-const galaxyOverlayUrl = new URL('../../../Galaxy Overlay 1 for Flow State.png', import.meta.url).href;
+const galaxyOverlayUrl = '/focus-flow-galaxy.png';
 const AUDIO_CATEGORY_LABELS: Record<FocusAudioCategory, string> = {
   lofi: 'Lofi',
   rain: 'Rain',
@@ -259,9 +259,9 @@ export default function FocusMode() {
     playAlarm(alarmCtxRef, 30);
   }, [alertState?.visible, now, session, syncTasks]);
 
-  const theme = getTheme(session?.themeId || 'emerald');
-  const accentRgb = theme.rgb;
   const isFlowState = audioPrefs.category === 'flow';
+  const theme = getTheme('violet');
+  const accentRgb = theme.rgb;
   const progress = session ? getFocusProgress(session, now) : { remainingSec: 0, elapsedSec: 0, progress: 0 };
   const focusCoreIntensity = isFlowState ? 0.55 + progress.progress * 0.55 : 0.5 + progress.progress * 0.2;
   const currentSegment = session?.segments[session.currentSegmentIndex];
