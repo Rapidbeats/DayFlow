@@ -856,6 +856,15 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+.dayflow-focus-shell.is-flow-state::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at center, transparent 52%, rgba(2, 6, 23, 0.36) 100%);
+  z-index: 0;
+}
+
 .dayflow-flow-backdrop {
   position: absolute;
   inset: 0;
@@ -866,7 +875,9 @@
 
 .dayflow-flow-nebula,
 .dayflow-flow-aurora,
-.dayflow-flow-gridfade {
+.dayflow-flow-gridfade,
+.dayflow-flow-galaxy-overlay,
+.dayflow-flow-particles-canvas {
   position: absolute;
   inset: -10%;
 }
@@ -911,6 +922,21 @@
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 100%);
 }
 
+.dayflow-flow-galaxy-overlay {
+  inset: -4%;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0.12;
+  filter: blur(10px);
+  mix-blend-mode: screen;
+}
+
+.dayflow-flow-particles-canvas {
+  inset: 0;
+  opacity: 0.72;
+}
+
 .dayflow-flow-particle {
   position: absolute;
   border-radius: 999px;
@@ -927,6 +953,20 @@
     0 18px 36px rgba(2, 6, 23, 0.24);
 }
 
+.dayflow-focus-glow-card {
+  position: relative;
+}
+
+.dayflow-focus-glow-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent 32%);
+  pointer-events: none;
+}
+
 .dayflow-focus-core-glow::after {
   content: '';
   position: absolute;
@@ -935,6 +975,11 @@
   background: radial-gradient(circle, rgba(79, 124, 255, 0.08), rgba(139, 92, 246, 0.04), transparent 72%);
   filter: blur(24px);
   animation: dayflow-focus-core-pulse 5.8s ease-in-out infinite;
+}
+
+.dayflow-focus-orbit-shell {
+  transform-origin: center;
+  animation: dayflow-orbit-spin 22s linear infinite;
 }
 
 .dayflow-focus-engine-card {
@@ -950,6 +995,29 @@
   padding: 14px;
 }
 
+.dayflow-focus-engine-tab {
+  position: relative;
+  overflow: hidden;
+}
+
+.dayflow-focus-engine-tab.is-flow {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.dayflow-focus-engine-tab.is-flow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 0%, rgba(79, 124, 255, 0.1) 36%, rgba(139, 92, 246, 0.2) 52%, transparent 74%);
+  transform: translateX(-130%);
+  transition: transform 0.8s ease;
+}
+
+.dayflow-focus-engine-tab.is-flow:hover::before,
+.dayflow-focus-engine-tab.is-flow:focus-visible::before {
+  transform: translateX(130%);
+}
+
 .dayflow-focus-engine-card.is-flow-state {
   border-color: rgba(79, 124, 255, 0.18);
   background:
@@ -958,6 +1026,13 @@
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.02),
     0 18px 34px rgba(2, 6, 23, 0.28);
+}
+
+.dayflow-focus-engine-card.is-flow-state:hover {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.02),
+    0 18px 34px rgba(2, 6, 23, 0.28),
+    0 0 28px rgba(79, 124, 255, 0.12);
 }
 
 .dayflow-focus-engine-art {
