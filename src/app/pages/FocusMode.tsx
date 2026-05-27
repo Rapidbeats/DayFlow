@@ -190,13 +190,15 @@ export default function FocusMode() {
           ? pickRandomTrack(FOCUS_TRACK_LIBRARY[audioPrefs.category])
           : pickRandomTrack(BREAK_TRACKS);
       const audio = new Audio(track.src);
-      audio.crossOrigin = 'anonymous';
+      // crossOrigin intentionally omitted — GitHub release URLs use redirects
+      // which are blocked by CORS preflight when crossOrigin is set.
       audio.loop = true;
       audio.volume = audioPrefs.volume;
       targetRef.current = audio;
       activeTrackSegmentRef.current = session!.currentSegmentIndex;
       setCurrentTrack(track);
-      connectTrackAnalyser(audio, trackAudioCtxRef, trackAnalyserRef, trackSourceRef, spectrumFrameRef, setAudioSpectrum);
+      // Analyser requires crossOrigin which blocks GitHub redirects — skip it, use animated fallback.
+      setAudioSpectrum(Array.from({ length: 10 }, (_, i) => 0.35 + (i % 3) * 0.15));
       void audio.play().catch(() => undefined);
       return;
     }
@@ -260,9 +262,7 @@ export default function FocusMode() {
   }, [alertState?.visible, now, session, syncTasks]);
 
   const isFlowState = audioPrefs.category === 'flow';
-  const userTheme = getTheme(session?.themeId || 'emerald');
-  const flowTheme = getTheme('violet');
-  const theme = isFlowState ? flowTheme : userTheme;
+  const theme = getTheme('violet');
   const accentRgb = theme.rgb;
   const progress = session ? getFocusProgress(session, now) : { remainingSec: 0, elapsedSec: 0, progress: 0 };
   const focusCoreIntensity = isFlowState ? 0.55 + progress.progress * 0.55 : 0.5 + progress.progress * 0.2;
@@ -386,9 +386,7 @@ export default function FocusMode() {
       animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
       transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
       style={{
-        background: isFlowState
-          ? 'linear-gradient(180deg, #020617 0%, #050b17 46%, #020617 100%)'
-          : `radial-gradient(ellipse at 70% 0%, rgba(${accentRgb}, 0.14) 0%, transparent 55%), linear-gradient(180deg, #080c14 0%, #0a0f1c 100%)`,
+        background: 'linear-gradient(180deg, #020617 0%, #050b17 46%, #020617 100%)',
         border: `1px solid rgba(${accentRgb}, 0.16)`,
       }}
     >
@@ -399,56 +397,41 @@ export default function FocusMode() {
         animate={{ opacity: 1, filter: 'blur(0px)' }}
         transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
       >
-        {isFlowState ? (
-          <>
-            <motion.div className="dayflow-flow-nebula dayflow-flow-nebula-a" initial={{ opacity: 0 }} animate={{ opacity: 0.6 }} transition={{ duration: 0.8, delay: 0.15 }} />
-            <motion.div className="dayflow-flow-nebula dayflow-flow-nebula-b" initial={{ opacity: 0 }} animate={{ opacity: 0.55 }} transition={{ duration: 0.9, delay: 0.22 }} />
-            <motion.div className="dayflow-flow-nebula dayflow-flow-nebula-c" initial={{ opacity: 0 }} animate={{ opacity: 0.45 }} transition={{ duration: 1, delay: 0.3 }} />
-            <motion.div className="dayflow-flow-aurora" initial={{ opacity: 0 }} animate={{ opacity: 0.58 }} transition={{ duration: 0.95, delay: 0.35 }} />
-            <motion.div
-              className="dayflow-flow-galaxy-overlay"
-              style={{ backgroundImage: `url("${galaxyOverlayUrl}")` }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.12 }}
-              transition={{ duration: 0.95, delay: 0.42 }}
+        <motion.div className="dayflow-flow-nebula dayflow-flow-nebula-a" initial={{ opacity: 0 }} animate={{ opacity: 0.6 }} transition={{ duration: 0.8, delay: 0.15 }} />
+        <motion.div className="dayflow-flow-nebula dayflow-flow-nebula-b" initial={{ opacity: 0 }} animate={{ opacity: 0.55 }} transition={{ duration: 0.9, delay: 0.22 }} />
+        <motion.div className="dayflow-flow-nebula dayflow-flow-nebula-c" initial={{ opacity: 0 }} animate={{ opacity: 0.45 }} transition={{ duration: 1, delay: 0.3 }} />
+        <motion.div className="dayflow-flow-aurora" initial={{ opacity: 0 }} animate={{ opacity: 0.58 }} transition={{ duration: 0.95, delay: 0.35 }} />
+        <motion.div
+          className="dayflow-flow-galaxy-overlay"
+          style={{ backgroundImage: `url("${galaxyOverlayUrl}")` }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.12 }}
+          transition={{ duration: 0.95, delay: 0.42 }}
+        />
+        <motion.div className="dayflow-flow-gridfade" initial={{ opacity: 0 }} animate={{ opacity: 0.24 }} transition={{ duration: 0.9, delay: 0.48 }} />
+        <ParticlesProvider init={initParticles}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.85, delay: 0.55 }}>
+            <Particles
+            id="dayflow-focus-particles"
+            className="dayflow-flow-particles-canvas"
+            options={particleOptions}
             />
-            <motion.div className="dayflow-flow-gridfade" initial={{ opacity: 0 }} animate={{ opacity: 0.24 }} transition={{ duration: 0.9, delay: 0.48 }} />
-            <ParticlesProvider init={initParticles}>
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.85, delay: 0.55 }}>
-                <Particles
-                id="dayflow-focus-particles"
-                className="dayflow-flow-particles-canvas"
-                options={particleOptions}
-                />
-              </motion.div>
-            </ParticlesProvider>
-            {ambientParticles.map((particle) => (
-              <span
-                key={particle.id}
-                className="dayflow-flow-particle"
-                style={{
-                  width: particle.size,
-                  height: particle.size,
-                  left: particle.left,
-                  top: particle.top,
-                  animationDuration: particle.duration,
-                  animationDelay: particle.delay,
-                }}
-              />
-            ))}
-          </>
-        ) : (
-          /* Non-flow: subtle radial glow using user accent colour */
-          <motion.div
-            className="pointer-events-none absolute inset-0"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.7 }}
+          </motion.div>
+        </ParticlesProvider>
+        {ambientParticles.map((particle) => (
+          <span
+            key={particle.id}
+            className="dayflow-flow-particle"
             style={{
-              background: `radial-gradient(ellipse at 70% 0%, rgba(${accentRgb}, 0.18) 0%, transparent 55%), radial-gradient(ellipse at 20% 100%, rgba(${accentRgb}, 0.09) 0%, transparent 45%)`,
+              width: particle.size,
+              height: particle.size,
+              left: particle.left,
+              top: particle.top,
+              animationDuration: particle.duration,
+              animationDelay: particle.delay,
             }}
           />
-        )}
+        ))}
       </motion.div>
 
       <motion.div className="flex flex-wrap items-start justify-between gap-4 px-5 pb-0 pt-5 md:px-6 md:pt-6" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65, delay: 0.18 }}>
