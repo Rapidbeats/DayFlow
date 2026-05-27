@@ -189,14 +189,20 @@ export default function FocusMode() {
         segmentType === 'focus'
           ? pickRandomTrack(FOCUS_TRACK_LIBRARY[audioPrefs.category])
           : pickRandomTrack(BREAK_TRACKS);
-      const audio = new Audio(track.src);
-      audio.crossOrigin = 'anonymous';
+      // Proxy GitHub release URLs — they 302-redirect which blocks CORS preflight.
+      // allorigins.win fetches and re-serves with proper CORS headers.
+      const proxiedSrc = track.src.startsWith('https://github.com')
+        ? `https://api.allorigins.win/raw?url=${encodeURIComponent(track.src)}`
+        : track.src;
+      const audio = new Audio(proxiedSrc);
+      // No crossOrigin needed — proxy handles CORS. Allows audio to play freely.
       audio.loop = true;
       audio.volume = audioPrefs.volume;
       targetRef.current = audio;
       activeTrackSegmentRef.current = session!.currentSegmentIndex;
       setCurrentTrack(track);
-      connectTrackAnalyser(audio, trackAudioCtxRef, trackAnalyserRef, trackSourceRef, spectrumFrameRef, setAudioSpectrum);
+      // Analyser skipped — requires crossOrigin which conflicts with proxy redirect chain.
+      setAudioSpectrum(Array.from({ length: 10 }, (_, i) => 0.3 + (i % 3) * 0.18));
       void audio.play().catch(() => undefined);
       return;
     }
@@ -508,8 +514,15 @@ export default function FocusMode() {
                 key={bar.key}
                 className="dayflow-focus-cycle-card"
                 style={{
-                  borderColor: isCurrent ? `rgba(${accentRgb}, 0.34)` : 'rgba(255,255,255,0.07)',
-                  background: isCurrent ? `linear-gradient(135deg, rgba(${accentRgb},0.15), rgba(255,255,255,0.04))` : 'rgba(255,255,255,0.03)',
+                  borderColor: isCurrent
+                    ? isFlowState ? 'rgba(79,124,255,0.45)' : `rgba(${accentRgb}, 0.34)`
+                    : isFlowState ? 'rgba(79,124,255,0.15)' : 'rgba(255,255,255,0.07)',
+                  background: isCurrent
+                    ? isFlowState
+                      ? 'linear-gradient(135deg, rgba(79,124,255,0.22), rgba(139,92,246,0.14))'
+                      : `linear-gradient(135deg, rgba(${accentRgb},0.15), rgba(255,255,255,0.04))`
+                    : isFlowState ? 'rgba(4,8,24,0.4)' : 'rgba(255,255,255,0.03)',
+                  backdropFilter: isFlowState ? 'blur(16px)' : undefined,
                 }}
               >
                 <div className="dayflow-focus-cycle-meta">
@@ -553,7 +566,7 @@ export default function FocusMode() {
             className={`pointer-events-none absolute inset-0 ${isFlowState ? 'dayflow-focus-core-glow' : ''}`}
             style={{
               background: isFlowState
-                ? `radial-gradient(circle at 50% 45%, rgba(79,124,255,${0.12 + focusCoreIntensity * 0.14}) 0%, rgba(139,92,246,${0.08 + focusCoreIntensity * 0.1}) 32%, transparent 62%)`
+                ? `radial-gradient(circle at 50% 45%, rgba(79,124,255,${0.18 + focusCoreIntensity * 0.22}) 0%, rgba(139,92,246,${0.12 + focusCoreIntensity * 0.16}) 32%, transparent 62%)`
                 : `radial-gradient(circle at 50% 45%, rgba(${accentRgb},0.09) 0%, transparent 60%)`,
             }}
           />
@@ -704,7 +717,11 @@ export default function FocusMode() {
 
               <div
                 className="flex items-center gap-2 rounded-[14px] px-5 py-3 text-center text-[13px] text-white/60"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                style={{
+                  background: isFlowState ? 'rgba(4,8,24,0.45)' : 'rgba(255,255,255,0.04)',
+                  border: isFlowState ? '1px solid rgba(79,124,255,0.18)' : '1px solid rgba(255,255,255,0.07)',
+                  backdropFilter: isFlowState ? 'blur(12px)' : undefined,
+                }}
               >
                 <span style={{ color: `rgb(${accentRgb})` }}>{'\u26A1'}</span>
                 {FOCUS_QUOTES[quoteIndex]}
