@@ -1,4 +1,5 @@
 import { type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { motion } from 'motion/react';
 import {
   Clock3,
   Minimize2,
@@ -11,6 +12,8 @@ import {
   VolumeX,
   X,
 } from 'lucide-react';
+import Particles, { ParticlesProvider } from '@tsparticles/react';
+import { loadFull } from 'tsparticles';
 import { useNavigate, useSearchParams } from 'react-router';
 import {
   BREAK_TRACKS,
@@ -74,6 +77,7 @@ const FOCUS_QUOTES = [
 ];
 
 const PHASE_STEPS = ['Inhale', 'Hold', 'Exhale', 'Hold'] as const;
+const galaxyOverlayUrl = new URL('../../../Galaxy Overlay 1 for Flow State.png', import.meta.url).href;
 const AUDIO_CATEGORY_LABELS: Record<FocusAudioCategory, string> = {
   lofi: 'Lofi',
   rain: 'Rain',
@@ -103,12 +107,17 @@ export default function FocusMode() {
   const [showAudioPanel, setShowAudioPanel] = useState(false);
   const [quoteIndex] = useState(() => Math.floor(Math.random() * FOCUS_QUOTES.length));
   const [currentTrack, setCurrentTrack] = useState<FocusTrack | null>(null);
+  const [audioSpectrum, setAudioSpectrum] = useState<number[]>(Array.from({ length: 10 }, () => 0.35));
 
   const { syncTasks, refreshTasks } = useAuth();
   const alarmCtxRef = useRef<AudioContext | null>(null);
   const focusAudioRef = useRef<HTMLAudioElement | null>(null);
   const breakAudioRef = useRef<HTMLAudioElement | null>(null);
   const activeTrackSegmentRef = useRef<number>(-1);
+  const trackAudioCtxRef = useRef<AudioContext | null>(null);
+  const trackAnalyserRef = useRef<AnalyserNode | null>(null);
+  const trackSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const spectrumFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     void refreshTasks().then(() => {
@@ -152,6 +161,7 @@ export default function FocusMode() {
       stopAlarmAudio(alarmCtxRef);
       stopTrackAudio(focusAudioRef);
       stopTrackAudio(breakAudioRef);
+      stopTrackAnalyser(trackAudioCtxRef, spectrumFrameRef, trackAnalyserRef, trackSourceRef);
     };
   }, []);
 
@@ -162,6 +172,8 @@ export default function FocusMode() {
     if (!canPlayAudio || !segmentType) {
       stopTrackAudio(focusAudioRef);
       stopTrackAudio(breakAudioRef);
+      stopTrackAnalyser(trackAudioCtxRef, spectrumFrameRef, trackAnalyserRef, trackSourceRef);
+      setAudioSpectrum(Array.from({ length: 10 }, () => 0.35));
       activeTrackSegmentRef.current = -1;
       return;
     }
@@ -172,21 +184,25 @@ export default function FocusMode() {
 
     if (activeTrackSegmentRef.current !== session!.currentSegmentIndex || !targetRef.current) {
       stopTrackAudio(targetRef);
+      stopTrackAnalyser(trackAudioCtxRef, spectrumFrameRef, trackAnalyserRef, trackSourceRef);
       const track =
         segmentType === 'focus'
           ? pickRandomTrack(FOCUS_TRACK_LIBRARY[audioPrefs.category])
           : pickRandomTrack(BREAK_TRACKS);
       const audio = new Audio(track.src);
+      audio.crossOrigin = 'anonymous';
       audio.loop = true;
       audio.volume = audioPrefs.volume;
       targetRef.current = audio;
       activeTrackSegmentRef.current = session!.currentSegmentIndex;
       setCurrentTrack(track);
+      connectTrackAnalyser(audio, trackAudioCtxRef, trackAnalyserRef, trackSourceRef, spectrumFrameRef, setAudioSpectrum);
       void audio.play().catch(() => undefined);
       return;
     }
 
     targetRef.current.volume = audioPrefs.volume;
+    void trackAudioCtxRef.current?.resume().catch(() => undefined);
   }, [alertState?.visible, audioPrefs, session]);
 
   useEffect(() => {
@@ -247,6 +263,7 @@ export default function FocusMode() {
   const accentRgb = theme.rgb;
   const isFlowState = audioPrefs.category === 'flow';
   const progress = session ? getFocusProgress(session, now) : { remainingSec: 0, elapsedSec: 0, progress: 0 };
+  const focusCoreIntensity = isFlowState ? 0.55 + progress.progress * 0.55 : 0.5 + progress.progress * 0.2;
   const currentSegment = session?.segments[session.currentSegmentIndex];
   const showBreakUi = currentSegment?.type === 'break';
   const breakPhase = useMemo(
@@ -288,6 +305,53 @@ export default function FocusMode() {
       })),
     []
   );
+  const particleOptions = useMemo(
+    () => ({
+      fullScreen: { enable: false },
+      fpsLimit: 60,
+      background: { color: { value: 'transparent' } },
+      particles: {
+        color: { value: ['#F8FAFC', '#4F7CFF', '#8B5CF6'] },
+        move: {
+          enable: true,
+          direction: 'none' as const,
+          outModes: { default: 'out' as const },
+          random: true,
+          speed: 0.18,
+          straight: false,
+        },
+        number: {
+          density: { enable: true, width: 1200, height: 800 },
+          value: 28,
+        },
+        opacity: {
+          value: { min: 0.04, max: 0.18 },
+          animation: { enable: true, speed: 0.25, minimumValue: 0.03, sync: false },
+        },
+        shape: { type: 'circle' as const },
+        size: {
+          value: { min: 1, max: 3 },
+          animation: { enable: true, speed: 1, minimumValue: 0.8, sync: false },
+        },
+        twinkle: {
+          particles: {
+            enable: true,
+            color: { value: '#F8FAFC' },
+            frequency: 0.015,
+            opacity: 0.4,
+          },
+        },
+      },
+      detectRetina: true,
+    }),
+    []
+  );
+  const initParticles = useMemo(
+    () => async (engine: Parameters<typeof loadFull>[0]) => {
+      await loadFull(engine);
+    },
+    []
+  );
 
   if (loading) {
     return (
@@ -314,21 +378,44 @@ export default function FocusMode() {
   }
 
   return (
-    <div
+    <motion.div
       className={`dayflow-focus-shell min-h-[calc(100vh-96px)] overflow-hidden rounded-[32px] ${isFlowState ? 'is-flow-state' : ''}`}
+      initial={{ opacity: 0, filter: 'blur(10px)', scale: 0.985 }}
+      animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
+      transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
       style={{
-        background: isFlowState
-          ? 'linear-gradient(180deg, #020617 0%, #050b17 46%, #020617 100%)'
-          : `radial-gradient(circle at top, rgba(${accentRgb}, 0.18), transparent 30%), linear-gradient(180deg, #09111c 0%, #081018 100%)`,
+        background: 'linear-gradient(180deg, #020617 0%, #050b17 46%, #020617 100%)',
         border: `1px solid rgba(${accentRgb}, 0.16)`,
       }}
     >
-      <div className="dayflow-flow-backdrop" aria-hidden="true">
-        <div className="dayflow-flow-nebula dayflow-flow-nebula-a" />
-        <div className="dayflow-flow-nebula dayflow-flow-nebula-b" />
-        <div className="dayflow-flow-nebula dayflow-flow-nebula-c" />
-        <div className="dayflow-flow-aurora" />
-        <div className="dayflow-flow-gridfade" />
+      <motion.div
+        className="dayflow-flow-backdrop"
+        aria-hidden="true"
+        initial={{ opacity: 0.1, filter: 'blur(18px)' }}
+        animate={{ opacity: 1, filter: 'blur(0px)' }}
+        transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <motion.div className="dayflow-flow-nebula dayflow-flow-nebula-a" initial={{ opacity: 0 }} animate={{ opacity: 0.6 }} transition={{ duration: 0.8, delay: 0.15 }} />
+        <motion.div className="dayflow-flow-nebula dayflow-flow-nebula-b" initial={{ opacity: 0 }} animate={{ opacity: 0.55 }} transition={{ duration: 0.9, delay: 0.22 }} />
+        <motion.div className="dayflow-flow-nebula dayflow-flow-nebula-c" initial={{ opacity: 0 }} animate={{ opacity: 0.45 }} transition={{ duration: 1, delay: 0.3 }} />
+        <motion.div className="dayflow-flow-aurora" initial={{ opacity: 0 }} animate={{ opacity: 0.58 }} transition={{ duration: 0.95, delay: 0.35 }} />
+        <motion.div
+          className="dayflow-flow-galaxy-overlay"
+          style={{ backgroundImage: `url("${galaxyOverlayUrl}")` }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.12 }}
+          transition={{ duration: 0.95, delay: 0.42 }}
+        />
+        <motion.div className="dayflow-flow-gridfade" initial={{ opacity: 0 }} animate={{ opacity: 0.24 }} transition={{ duration: 0.9, delay: 0.48 }} />
+        <ParticlesProvider init={initParticles}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.85, delay: 0.55 }}>
+            <Particles
+            id="dayflow-focus-particles"
+            className="dayflow-flow-particles-canvas"
+            options={particleOptions}
+            />
+          </motion.div>
+        </ParticlesProvider>
         {ambientParticles.map((particle) => (
           <span
             key={particle.id}
@@ -343,9 +430,9 @@ export default function FocusMode() {
             }}
           />
         ))}
-      </div>
+      </motion.div>
 
-      <div className="flex flex-wrap items-start justify-between gap-4 px-5 pb-0 pt-5 md:px-6 md:pt-6">
+      <motion.div className="flex flex-wrap items-start justify-between gap-4 px-5 pb-0 pt-5 md:px-6 md:pt-6" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65, delay: 0.18 }}>
         <div>
           <div className="text-[11px] font-[700] uppercase tracking-[0.22em]" style={{ color: `rgb(${accentRgb})` }}>
             Focus Mode
@@ -385,9 +472,9 @@ export default function FocusMode() {
             Exit
           </button>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="px-5 pt-5 md:px-6">
+      <motion.div className="px-5 pt-5 md:px-6" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.28 }}>
         <div className="mb-3 flex items-center justify-between">
           <span className="text-[11px] font-[700] uppercase tracking-[0.2em] text-white/30">Progress Timeline</span>
           <span className="text-[12px] font-[600]" style={{ color: `rgb(${accentRgb})` }}>
@@ -426,11 +513,14 @@ export default function FocusMode() {
             );
           })}
         </div>
-      </div>
+      </motion.div>
 
       <div className="grid gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <section
+        <motion.section
           className="relative overflow-hidden rounded-[24px] px-4 py-8 sm:px-6 sm:py-10"
+          initial={{ opacity: 0, y: 18, scale: 0.985 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.85, delay: 0.34, ease: [0.22, 1, 0.36, 1] }}
           style={{
             background: isFlowState
               ? 'linear-gradient(180deg, rgba(11,17,32,0.78), rgba(2,6,23,0.72))'
@@ -443,7 +533,7 @@ export default function FocusMode() {
             className={`pointer-events-none absolute inset-0 ${isFlowState ? 'dayflow-focus-core-glow' : ''}`}
             style={{
               background: isFlowState
-                ? 'radial-gradient(circle at 50% 45%, rgba(79,124,255,0.16) 0%, rgba(139,92,246,0.10) 32%, transparent 62%)'
+                ? `radial-gradient(circle at 50% 45%, rgba(79,124,255,${0.12 + focusCoreIntensity * 0.14}) 0%, rgba(139,92,246,${0.08 + focusCoreIntensity * 0.1}) 32%, transparent 62%)`
                 : `radial-gradient(circle at 50% 45%, rgba(${accentRgb},0.09) 0%, transparent 60%)`,
             }}
           />
@@ -519,7 +609,7 @@ export default function FocusMode() {
                     style={{
                       transition: 'stroke-dashoffset 1s linear',
                       filter: isFlowState
-                        ? 'drop-shadow(0 0 10px rgba(79,124,255,0.95)) drop-shadow(0 0 22px rgba(139,92,246,0.38))'
+                        ? `drop-shadow(0 0 ${10 + progress.progress * 8}px rgba(79,124,255,0.95)) drop-shadow(0 0 ${22 + progress.progress * 18}px rgba(139,92,246,0.38))`
                         : `drop-shadow(0 0 8px rgba(${accentRgb},0.7))`,
                     }}
                   />
@@ -530,13 +620,13 @@ export default function FocusMode() {
                     fill={`rgb(${accentRgb})`}
                     style={{
                       filter: isFlowState
-                        ? 'drop-shadow(0 0 18px rgba(79,124,255,0.95)) drop-shadow(0 0 30px rgba(244,63,94,0.25))'
+                        ? `drop-shadow(0 0 ${18 + progress.progress * 8}px rgba(79,124,255,0.95)) drop-shadow(0 0 ${30 + progress.progress * 16}px rgba(244,63,94,0.25))`
                         : `drop-shadow(0 0 16px rgba(${accentRgb},0.8))`,
                     }}
                   />
                   {isFlowState && (
                     <>
-                      <circle cx="160" cy="160" r="148" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="2 9" />
+                      <circle cx="160" cy="160" r="148" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="2 9" className="dayflow-focus-orbit-shell" />
                       <circle cx="160" cy="12" r="3" fill="#4F7CFF" style={{ filter: 'drop-shadow(0 0 8px rgba(79,124,255,0.85))' }} />
                       <circle cx="298" cy="160" r="2.5" fill="#8B5CF6" style={{ filter: 'drop-shadow(0 0 8px rgba(139,92,246,0.72))' }} />
                       <circle cx="160" cy="308" r="2.5" fill="#F43F5E" style={{ filter: 'drop-shadow(0 0 8px rgba(244,63,94,0.65))' }} />
@@ -551,18 +641,25 @@ export default function FocusMode() {
 
                   {audioPrefs.enabled && !session.paused && (
                     <div className="flex h-5 items-end gap-[3px]" aria-hidden="true">
-                      {Array.from({ length: 7 }).map((_, index) => (
+                      {Array.from({ length: 7 }).map((_, index) => {
+                        const sample = audioSpectrum[index] ?? 0.35;
+                        const minHeight = 22 + sample * 18;
+                        const maxHeight = 44 + sample * 30;
+                        return (
                         <div
                           key={index}
                           className="w-[3px] rounded-full"
                           style={{
                             background: `rgb(${accentRgb})`,
-                            height: `${30 + Math.sin(Date.now() / 300 + index * 0.8) * 40}%`,
+                            height: `${minHeight}%`,
                             animation: `audioBar${index % 3} ${0.6 + index * 0.1}s ease-in-out infinite alternate`,
-                            opacity: 0.7 + index * 0.04,
+                            animationPlayState: audioPrefs.enabled ? 'running' : 'paused',
+                            opacity: 0.64 + sample * 0.28,
+                            '--audio-bar-min': `${minHeight}%`,
+                            '--audio-bar-max': `${maxHeight}%`,
                           }}
                         />
-                      ))}
+                      )})}
                     </div>
                   )}
 
@@ -589,15 +686,15 @@ export default function FocusMode() {
                 className="flex items-center gap-2 rounded-[14px] px-5 py-3 text-center text-[13px] text-white/60"
                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
               >
-                <span style={{ color: `rgb(${accentRgb})` }}>⚡</span>
+                <span style={{ color: `rgb(${accentRgb})` }}>{'\u26A1'}</span>
                 {FOCUS_QUOTES[quoteIndex]}
               </div>
             </div>
           )}
-        </section>
+        </motion.section>
 
-        <aside className="flex flex-col gap-4">
-          <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-5">
+        <motion.aside className="flex flex-col gap-4" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, delay: 0.46 }}>
+          <div className={`rounded-[20px] border border-white/10 bg-white/[0.03] p-5 ${isFlowState ? 'dayflow-focus-glow-card' : ''}`}>
             <div className="text-[11px] font-[700] uppercase tracking-[0.2em] text-white/30">Session Status</div>
             <div className="mt-2 text-[28px] font-[800] tracking-[-0.04em] text-white">{Math.max(Math.ceil(remainingRuntimeMinutes), 0)}m remaining</div>
             <div className="mt-1 text-[13px] text-white/40">
@@ -618,7 +715,7 @@ export default function FocusMode() {
             </div>
           </div>
 
-          <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-5">
+          <div className={`rounded-[20px] border border-white/10 bg-white/[0.03] p-5 ${isFlowState ? 'dayflow-focus-glow-card' : ''}`}>
             <div className="mb-3 text-[11px] font-[700] uppercase tracking-[0.2em] text-white/30">Controls</div>
             <div className="grid gap-2 sm:grid-cols-2">
               <button
@@ -698,11 +795,9 @@ export default function FocusMode() {
             </div>
           </div>
 
-          <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-5">
+          <div className={`rounded-[20px] border border-white/10 bg-white/[0.03] p-5 ${isFlowState ? 'dayflow-focus-glow-card' : ''}`}>
             <div className="flex items-center justify-between">
-              <div className="text-[11px] font-[700] uppercase tracking-[0.2em] text-white/30">
-                {isFlowState ? 'Focus Engine' : 'Audio'}
-              </div>
+              <div className="text-[11px] font-[700] uppercase tracking-[0.2em] text-white/30">Focus Engine</div>
               <button
                 type="button"
                 onClick={() => setShowAudioPanel((current) => !current)}
@@ -743,9 +838,7 @@ export default function FocusMode() {
 
             {showAudioPanel && (
               <div className="mt-4 space-y-4">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-white/25">
-                  {isFlowState ? 'Focus Engine' : 'Focus audio'}
-                </div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-white/25">Focus Engine</div>
                 <div className="grid grid-cols-3 gap-2">
                   {(['lofi', 'rain', 'flow'] as FocusAudioCategory[]).map((category) => (
                     <button
@@ -758,11 +851,30 @@ export default function FocusMode() {
                           activeTrackSegmentRef.current = -1;
                         })
                       }
-                      className="rounded-[12px] px-3 py-2.5 text-[13px] font-[600] transition"
+                      className={`dayflow-focus-engine-tab rounded-[12px] px-3 py-2.5 text-[13px] font-[600] transition ${category === 'flow' ? 'is-flow' : ''}`}
                       style={{
-                        background: audioPrefs.category === category ? `rgba(${accentRgb},0.2)` : 'rgba(255,255,255,0.05)',
-                        border: audioPrefs.category === category ? `1px solid rgba(${accentRgb},0.4)` : '1px solid rgba(255,255,255,0.08)',
-                        color: audioPrefs.category === category ? `rgb(${accentRgb})` : 'rgba(255,255,255,0.45)',
+                        background:
+                          audioPrefs.category === category && category === 'flow'
+                            ? 'linear-gradient(135deg, rgba(79,124,255,0.22), rgba(139,92,246,0.16))'
+                            : audioPrefs.category === category
+                              ? `rgba(${accentRgb},0.2)`
+                              : 'rgba(255,255,255,0.05)',
+                        border:
+                          audioPrefs.category === category && category === 'flow'
+                            ? '1px solid rgba(79,124,255,0.42)'
+                            : audioPrefs.category === category
+                              ? `1px solid rgba(${accentRgb},0.4)`
+                              : '1px solid rgba(255,255,255,0.08)',
+                        color:
+                          audioPrefs.category === category && category === 'flow'
+                            ? '#F8FAFC'
+                            : audioPrefs.category === category
+                              ? `rgb(${accentRgb})`
+                              : 'rgba(255,255,255,0.45)',
+                        boxShadow:
+                          audioPrefs.category === category && category === 'flow'
+                            ? '0 0 20px rgba(79,124,255,0.18), inset 0 1px 0 rgba(255,255,255,0.06)'
+                            : undefined,
                       }}
                     >
                       {AUDIO_CATEGORY_LABELS[category]}
@@ -792,25 +904,29 @@ export default function FocusMode() {
                     </div>
                   </div>
                   <div className="dayflow-focus-engine-spectrum" aria-hidden="true">
-                    {Array.from({ length: 10 }).map((_, index) => (
+                    {Array.from({ length: 10 }).map((_, index) => {
+                      const sample = audioSpectrum[index] ?? 0.35;
+                      return (
                       <span
                         key={index}
                         style={{
                           animationDuration: `${0.9 + index * 0.06}s`,
                           animationDelay: `${index * 0.08}s`,
+                          height: `${12 + sample * 28}px`,
+                          opacity: 0.42 + sample * 0.5,
                         }}
                       />
-                    ))}
+                    )})}
                   </div>
                 </div>
                 <p className="text-[11px] leading-5 text-white/25">Break playlist plays automatically during recovery breaks.</p>
               </div>
             )}
           </div>
-        </aside>
+        </motion.aside>
       </div>
 
-      <div className="px-5 pb-5 md:px-6 md:pb-6">
+      <motion.div className="px-5 pb-5 md:px-6 md:pb-6" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.72, delay: 0.58 }}>
         <div className="dayflow-focus-stats-grid">
           {statusItems.map((stat) => (
             <div key={stat.label} className="dayflow-focus-stat-card">
@@ -819,7 +935,7 @@ export default function FocusMode() {
             </div>
           ))}
         </div>
-      </div>
+      </motion.div>
 
       {alertState?.type === 'midpoint' && (
         <div className="fixed inset-x-0 top-[100px] z-[220] flex justify-center px-4">
@@ -902,11 +1018,11 @@ export default function FocusMode() {
       )}
 
       <style>{`
-        @keyframes audioBar0 { from { height: 25% } to { height: 80% } }
-        @keyframes audioBar1 { from { height: 40% } to { height: 65% } }
-        @keyframes audioBar2 { from { height: 20% } to { height: 90% } }
+        @keyframes audioBar0 { from { height: var(--audio-bar-min, 25%) } to { height: var(--audio-bar-max, 80%) } }
+        @keyframes audioBar1 { from { height: calc(var(--audio-bar-min, 40%) * 0.92) } to { height: calc(var(--audio-bar-max, 65%) * 0.88) } }
+        @keyframes audioBar2 { from { height: calc(var(--audio-bar-min, 20%) * 0.8) } to { height: calc(var(--audio-bar-max, 90%) * 1.02) } }
       `}</style>
-    </div>
+    </motion.div>
   );
 
   async function finishSession(activeTaskId: string, skippedBreakCount: number) {
@@ -1012,6 +1128,84 @@ function updateAudioPrefs(
   saveAudioPrefs(next);
   if (patch.category || patch.enabled === false) {
     onCategoryLikeChange?.();
+  }
+}
+
+function connectTrackAnalyser(
+  audio: HTMLAudioElement,
+  ctxRef: MutableRefObject<AudioContext | null>,
+  analyserRef: MutableRefObject<AnalyserNode | null>,
+  sourceRef: MutableRefObject<MediaElementAudioSourceNode | null>,
+  frameRef: MutableRefObject<number | null>,
+  setSpectrum: (value: number[] | ((prev: number[]) => number[])) => void
+) {
+  try {
+    const AudioCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtor) return;
+
+    const context = ctxRef.current ?? new AudioCtor();
+    ctxRef.current = context;
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 64;
+    analyser.smoothingTimeConstant = 0.82;
+    analyserRef.current = analyser;
+
+    const source = context.createMediaElementSource(audio);
+    sourceRef.current = source;
+    source.connect(analyser);
+    analyser.connect(context.destination);
+    void context.resume().catch(() => undefined);
+
+    const buffer = new Uint8Array(analyser.frequencyBinCount);
+    const tick = () => {
+      analyser.getByteFrequencyData(buffer);
+      const next = Array.from({ length: 10 }).map((_, index) => {
+        const bucketSize = Math.max(1, Math.floor(buffer.length / 10));
+        const start = index * bucketSize;
+        const end = Math.min(buffer.length, start + bucketSize);
+        let total = 0;
+        for (let i = start; i < end; i += 1) total += buffer[i];
+        const avg = end > start ? total / (end - start) : 0;
+        return Math.max(0.14, Math.min(1, avg / 255));
+      });
+      setSpectrum(next);
+      frameRef.current = window.requestAnimationFrame(tick);
+    };
+
+    frameRef.current = window.requestAnimationFrame(tick);
+  } catch {
+    setSpectrum(Array.from({ length: 10 }, () => 0.5));
+  }
+}
+
+function stopTrackAnalyser(
+  ctxRef: MutableRefObject<AudioContext | null>,
+  frameRef: MutableRefObject<number | null>,
+  analyserRef: MutableRefObject<AnalyserNode | null>,
+  sourceRef: MutableRefObject<MediaElementAudioSourceNode | null>
+) {
+  if (frameRef.current !== null) {
+    window.cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+  }
+  try {
+    sourceRef.current?.disconnect();
+  } catch {
+    // ignore
+  }
+  try {
+    analyserRef.current?.disconnect();
+  } catch {
+    // ignore
+  }
+  try {
+    void ctxRef.current?.close();
+  } catch {
+    // ignore
+  } finally {
+    sourceRef.current = null;
+    analyserRef.current = null;
+    ctxRef.current = null;
   }
 }
 
