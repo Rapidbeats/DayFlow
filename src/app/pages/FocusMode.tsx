@@ -18,6 +18,7 @@ import {
   completeFocusTask,
   createFocusSession,
   findFocusTask,
+  FLOW_STATE_TRACKS,
   FOCUS_SESSION_UPDATED_EVENT,
   formatClock,
   getActiveFocusSession,
@@ -42,6 +43,7 @@ import {
   type FocusAudioCategory,
   type FocusAudioPrefs,
   type FocusSession,
+  type FocusTrack,
 } from '../lib/focusMode';
 import { useAuth } from '../contexts/AuthContext';
 import { getTheme } from '../lib/themes';
@@ -72,6 +74,21 @@ const FOCUS_QUOTES = [
 ];
 
 const PHASE_STEPS = ['Inhale', 'Hold', 'Exhale', 'Hold'] as const;
+const AUDIO_CATEGORY_LABELS: Record<FocusAudioCategory, string> = {
+  lofi: 'Lofi',
+  rain: 'Rain',
+  flow: 'Flow State',
+};
+const AUDIO_CATEGORY_TONE: Record<FocusAudioCategory, string> = {
+  lofi: 'Warm drift',
+  rain: 'Atmospheric calm',
+  flow: 'Neural intensity',
+};
+const FOCUS_TRACK_LIBRARY: Record<FocusAudioCategory, FocusTrack[]> = {
+  lofi: LOFI_TRACKS,
+  rain: RAIN_TRACKS,
+  flow: FLOW_STATE_TRACKS,
+};
 
 export default function FocusMode() {
   const navigate = useNavigate();
@@ -85,6 +102,7 @@ export default function FocusMode() {
   const [audioPrefs, setAudioPrefs] = useState<FocusAudioPrefs>(getAudioPrefs);
   const [showAudioPanel, setShowAudioPanel] = useState(false);
   const [quoteIndex] = useState(() => Math.floor(Math.random() * FOCUS_QUOTES.length));
+  const [currentTrack, setCurrentTrack] = useState<FocusTrack | null>(null);
 
   const { syncTasks, refreshTasks } = useAuth();
   const alarmCtxRef = useRef<AudioContext | null>(null);
@@ -154,15 +172,16 @@ export default function FocusMode() {
 
     if (activeTrackSegmentRef.current !== session!.currentSegmentIndex || !targetRef.current) {
       stopTrackAudio(targetRef);
-      const source =
+      const track =
         segmentType === 'focus'
-          ? pickRandomTrack(audioPrefs.category === 'rain' ? RAIN_TRACKS : LOFI_TRACKS)
+          ? pickRandomTrack(FOCUS_TRACK_LIBRARY[audioPrefs.category])
           : pickRandomTrack(BREAK_TRACKS);
-      const audio = new Audio(source);
+      const audio = new Audio(track.src);
       audio.loop = true;
       audio.volume = audioPrefs.volume;
       targetRef.current = audio;
       activeTrackSegmentRef.current = session!.currentSegmentIndex;
+      setCurrentTrack(track);
       void audio.play().catch(() => undefined);
       return;
     }
@@ -226,6 +245,7 @@ export default function FocusMode() {
 
   const theme = getTheme(session?.themeId || 'emerald');
   const accentRgb = theme.rgb;
+  const isFlowState = audioPrefs.category === 'flow';
   const progress = session ? getFocusProgress(session, now) : { remainingSec: 0, elapsedSec: 0, progress: 0 };
   const currentSegment = session?.segments[session.currentSegmentIndex];
   const showBreakUi = currentSegment?.type === 'break';
@@ -255,6 +275,19 @@ export default function FocusMode() {
     { label: 'Remaining', value: `${Math.max(Math.ceil(remainingFocusMinutes), 0)}m focus` },
     { label: 'Session', value: showBreakUi ? 'On break' : session?.paused ? 'Paused' : 'Active' },
   ];
+  const focusTrackSet = FOCUS_TRACK_LIBRARY[audioPrefs.category];
+  const ambientParticles = useMemo(
+    () =>
+      Array.from({ length: 18 }).map((_, index) => ({
+        id: index,
+        size: 2 + (index % 4),
+        left: `${(index * 13) % 100}%`,
+        top: `${(index * 17 + 9) % 100}%`,
+        duration: `${12 + (index % 5) * 4}s`,
+        delay: `${(index % 6) * 1.4}s`,
+      })),
+    []
+  );
 
   if (loading) {
     return (
@@ -282,12 +315,36 @@ export default function FocusMode() {
 
   return (
     <div
-      className="dayflow-focus-shell min-h-[calc(100vh-96px)] overflow-hidden rounded-[32px]"
+      className={`dayflow-focus-shell min-h-[calc(100vh-96px)] overflow-hidden rounded-[32px] ${isFlowState ? 'is-flow-state' : ''}`}
       style={{
-        background: `radial-gradient(circle at top, rgba(${accentRgb}, 0.18), transparent 30%), linear-gradient(180deg, #09111c 0%, #081018 100%)`,
+        background: isFlowState
+          ? 'linear-gradient(180deg, #020617 0%, #050b17 46%, #020617 100%)'
+          : `radial-gradient(circle at top, rgba(${accentRgb}, 0.18), transparent 30%), linear-gradient(180deg, #09111c 0%, #081018 100%)`,
         border: `1px solid rgba(${accentRgb}, 0.16)`,
       }}
     >
+      <div className="dayflow-flow-backdrop" aria-hidden="true">
+        <div className="dayflow-flow-nebula dayflow-flow-nebula-a" />
+        <div className="dayflow-flow-nebula dayflow-flow-nebula-b" />
+        <div className="dayflow-flow-nebula dayflow-flow-nebula-c" />
+        <div className="dayflow-flow-aurora" />
+        <div className="dayflow-flow-gridfade" />
+        {ambientParticles.map((particle) => (
+          <span
+            key={particle.id}
+            className="dayflow-flow-particle"
+            style={{
+              width: particle.size,
+              height: particle.size,
+              left: particle.left,
+              top: particle.top,
+              animationDuration: particle.duration,
+              animationDelay: particle.delay,
+            }}
+          />
+        ))}
+      </div>
+
       <div className="flex flex-wrap items-start justify-between gap-4 px-5 pb-0 pt-5 md:px-6 md:pt-6">
         <div>
           <div className="text-[11px] font-[700] uppercase tracking-[0.22em]" style={{ color: `rgb(${accentRgb})` }}>
@@ -375,14 +432,20 @@ export default function FocusMode() {
         <section
           className="relative overflow-hidden rounded-[24px] px-4 py-8 sm:px-6 sm:py-10"
           style={{
-            background: `radial-gradient(ellipse at center top, rgba(${accentRgb},0.13) 0%, transparent 65%), rgba(255,255,255,0.02)`,
-            border: '1px solid rgba(255,255,255,0.07)',
+            background: isFlowState
+              ? 'linear-gradient(180deg, rgba(11,17,32,0.78), rgba(2,6,23,0.72))'
+              : `radial-gradient(ellipse at center top, rgba(${accentRgb},0.13) 0%, transparent 65%), rgba(255,255,255,0.02)`,
+            border: isFlowState ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(255,255,255,0.07)',
             minHeight: '420px',
           }}
         >
           <div
-            className="pointer-events-none absolute inset-0"
-            style={{ background: `radial-gradient(circle at 50% 45%, rgba(${accentRgb},0.09) 0%, transparent 60%)` }}
+            className={`pointer-events-none absolute inset-0 ${isFlowState ? 'dayflow-focus-core-glow' : ''}`}
+            style={{
+              background: isFlowState
+                ? 'radial-gradient(circle at 50% 45%, rgba(79,124,255,0.16) 0%, rgba(139,92,246,0.10) 32%, transparent 62%)'
+                : `radial-gradient(circle at 50% 45%, rgba(${accentRgb},0.09) 0%, transparent 60%)`,
+            }}
           />
 
           {showBreakUi ? (
@@ -455,7 +518,9 @@ export default function FocusMode() {
                     strokeDashoffset={ringOffset}
                     style={{
                       transition: 'stroke-dashoffset 1s linear',
-                      filter: `drop-shadow(0 0 8px rgba(${accentRgb},0.7))`,
+                      filter: isFlowState
+                        ? 'drop-shadow(0 0 10px rgba(79,124,255,0.95)) drop-shadow(0 0 22px rgba(139,92,246,0.38))'
+                        : `drop-shadow(0 0 8px rgba(${accentRgb},0.7))`,
                     }}
                   />
                   <circle
@@ -463,8 +528,20 @@ export default function FocusMode() {
                     cy={ringDotY}
                     r="7"
                     fill={`rgb(${accentRgb})`}
-                    style={{ filter: `drop-shadow(0 0 16px rgba(${accentRgb},0.8))` }}
+                    style={{
+                      filter: isFlowState
+                        ? 'drop-shadow(0 0 18px rgba(79,124,255,0.95)) drop-shadow(0 0 30px rgba(244,63,94,0.25))'
+                        : `drop-shadow(0 0 16px rgba(${accentRgb},0.8))`,
+                    }}
                   />
+                  {isFlowState && (
+                    <>
+                      <circle cx="160" cy="160" r="148" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="2 9" />
+                      <circle cx="160" cy="12" r="3" fill="#4F7CFF" style={{ filter: 'drop-shadow(0 0 8px rgba(79,124,255,0.85))' }} />
+                      <circle cx="298" cy="160" r="2.5" fill="#8B5CF6" style={{ filter: 'drop-shadow(0 0 8px rgba(139,92,246,0.72))' }} />
+                      <circle cx="160" cy="308" r="2.5" fill="#F43F5E" style={{ filter: 'drop-shadow(0 0 8px rgba(244,63,94,0.65))' }} />
+                    </>
+                  )}
                 </svg>
 
                 <div className="relative z-10 flex flex-col items-center gap-3">
@@ -623,7 +700,9 @@ export default function FocusMode() {
 
           <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-5">
             <div className="flex items-center justify-between">
-              <div className="text-[11px] font-[700] uppercase tracking-[0.2em] text-white/30">Audio</div>
+              <div className="text-[11px] font-[700] uppercase tracking-[0.2em] text-white/30">
+                {isFlowState ? 'Focus Engine' : 'Audio'}
+              </div>
               <button
                 type="button"
                 onClick={() => setShowAudioPanel((current) => !current)}
@@ -663,10 +742,12 @@ export default function FocusMode() {
             </div>
 
             {showAudioPanel && (
-              <div className="mt-4 space-y-3">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-white/25">Focus audio</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['lofi', 'rain'] as FocusAudioCategory[]).map((category) => (
+              <div className="mt-4 space-y-4">
+                <div className="text-[11px] uppercase tracking-[0.16em] text-white/25">
+                  {isFlowState ? 'Focus Engine' : 'Focus audio'}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['lofi', 'rain', 'flow'] as FocusAudioCategory[]).map((category) => (
                     <button
                       key={category}
                       type="button"
@@ -684,9 +765,43 @@ export default function FocusMode() {
                         color: audioPrefs.category === category ? `rgb(${accentRgb})` : 'rgba(255,255,255,0.45)',
                       }}
                     >
-                      {category === 'lofi' ? 'Lofi' : 'Rain'}
+                      {AUDIO_CATEGORY_LABELS[category]}
                     </button>
                   ))}
+                </div>
+                <div className={`dayflow-focus-engine-card ${isFlowState ? 'is-flow-state' : ''}`}>
+                  <div
+                    className="dayflow-focus-engine-art"
+                    data-seed={currentTrack?.artworkSeed || audioPrefs.category}
+                  >
+                    <div className="dayflow-focus-engine-art-core" />
+                    <div className="dayflow-focus-engine-art-orbit" />
+                    <div className="dayflow-focus-engine-art-label">
+                      {(currentTrack?.title || AUDIO_CATEGORY_LABELS[audioPrefs.category]).slice(0, 2).toUpperCase()}
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] uppercase tracking-[0.16em] text-white/25">
+                      {AUDIO_CATEGORY_TONE[audioPrefs.category]}
+                    </div>
+                    <div className="mt-1 truncate text-[15px] font-[700] text-white">
+                      {currentTrack?.title || (audioPrefs.category === 'flow' ? 'Cosmic Drift' : focusTrackSet[0]?.title)}
+                    </div>
+                    <div className="mt-1 text-[12px] text-white/45">
+                      {currentTrack?.intensity || (audioPrefs.category === 'flow' ? 'High' : 'Medium')} intensity
+                    </div>
+                  </div>
+                  <div className="dayflow-focus-engine-spectrum" aria-hidden="true">
+                    {Array.from({ length: 10 }).map((_, index) => (
+                      <span
+                        key={index}
+                        style={{
+                          animationDuration: `${0.9 + index * 0.06}s`,
+                          animationDelay: `${index * 0.08}s`,
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
                 <p className="text-[11px] leading-5 text-white/25">Break playlist plays automatically during recovery breaks.</p>
               </div>
