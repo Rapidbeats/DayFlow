@@ -975,8 +975,8 @@
   position: absolute;
   inset: 14% 18%;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(79, 124, 255, 0.08), rgba(139, 92, 246, 0.04), transparent 72%);
-  filter: blur(24px);
+  background: radial-gradient(circle, rgba(79, 124, 255, 0.18), rgba(139, 92, 246, 0.10), transparent 72%);
+  filter: blur(28px);
   animation: dayflow-focus-core-pulse 5.8s ease-in-out infinite;
 }
 
@@ -1352,6 +1352,17 @@
   padding: 12px;
 }
 
+.dayflow-focus-shell.is-flow-state .dayflow-focus-stats-grid {
+  background: rgba(4, 8, 24, 0.32);
+  border-color: rgba(79, 124, 255, 0.12);
+  backdrop-filter: blur(16px);
+}
+
+.dayflow-focus-shell.is-flow-state .dayflow-focus-stat-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(79, 124, 255, 0.1);
+}
+
 .dayflow-focus-stat-card {
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -1583,6 +1594,13 @@
   padding: 12px;
 }
 
+/* Flow state overrides — violet palette, glass cards */
+.dayflow-focus-shell.is-flow-state .dayflow-focus-cycle-card {
+  background: rgba(4, 8, 24, 0.38);
+  border-color: rgba(79, 124, 255, 0.14);
+  backdrop-filter: blur(16px);
+}
+
 .dayflow-focus-cycle-meta {
   display: flex;
   align-items: center;
@@ -1624,6 +1642,10 @@
   background: rgba(var(--accent-rgb), 0.12);
 }
 
+.dayflow-focus-shell.is-flow-state .dayflow-focus-cycle-segment.focus {
+  background: linear-gradient(90deg, rgba(79, 124, 255, 0.28), rgba(139, 92, 246, 0.18));
+}
+
 .dayflow-focus-cycle-segment.break {
   background: rgba(255, 255, 255, 0.06);
 }
@@ -1632,9 +1654,23 @@
   box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.14);
 }
 
+.dayflow-focus-shell.is-flow-state .dayflow-focus-cycle-segment.done {
+  background: linear-gradient(90deg, rgba(79, 124, 255, 0.18), rgba(139, 92, 246, 0.12));
+  box-shadow: inset 0 0 0 1px rgba(79, 124, 255, 0.18);
+}
+
 .dayflow-focus-cycle-segment.current-focus,
 .dayflow-focus-cycle-segment.current-break {
   background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.32), rgba(var(--accent-rgb), 0.14));
+}
+
+.dayflow-focus-shell.is-flow-state .dayflow-focus-cycle-segment.current-focus {
+  background: linear-gradient(90deg, rgba(79, 124, 255, 0.55), rgba(139, 92, 246, 0.38));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+.dayflow-focus-shell.is-flow-state .dayflow-focus-cycle-segment.current-break {
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.42), rgba(244, 63, 94, 0.22));
 }
 
 .dayflow-focus-cycle-segment.skipped {
