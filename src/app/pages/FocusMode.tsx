@@ -16,27 +16,29 @@ import Particles, { ParticlesProvider } from '@tsparticles/react';
 import { loadFull } from 'tsparticles';
 import { useNavigate, useSearchParams } from 'react-router';
 import {
-  BREAK_TRACKS,
+  BREAK_TRACK_URLS,
   clearFocusSession,
   completeFocusTask,
   createFocusSession,
   findFocusTask,
-  FLOW_STATE_TRACKS,
+  FLOW_STATE_TRACK_URLS,
   FOCUS_SESSION_UPDATED_EVENT,
   formatClock,
   getActiveFocusSession,
   getAudioPrefs,
   getCompletedFocusMinutes,
   getCompletedSessionMinutes,
+  getFlowStateTrackUrlForSegment,
   getFocusProgress,
   getTotalSessionMinutes,
-  LOFI_TRACKS,
+  getTrackByUrl,
+  LOFI_TRACK_URLS,
   markMidpointCuePlayed,
   moveToNextFocusSegment,
   pauseFocusSession,
   phaseLabel,
-  pickRandomTrack,
-  RAIN_TRACKS,
+  pickRandomTrackUrl,
+  RAIN_TRACK_URLS,
   resumeFocusSession,
   saveAudioPrefs,
   sessionSummaryLabel,
@@ -49,7 +51,7 @@ import {
   type FocusTrack,
 } from '../lib/focusMode';
 import { useAuth } from '../contexts/AuthContext';
-import { getTheme } from '../lib/themes';
+import { getTheme, getThemeOverlayUrl } from '../lib/themes';
 import { triggerCelebration } from '../components/CelebrationLayer';
 
 type AlertState =
@@ -77,7 +79,6 @@ const FOCUS_QUOTES = [
 ];
 
 const PHASE_STEPS = ['Inhale', 'Hold', 'Exhale', 'Hold'] as const;
-const galaxyOverlayUrl = '/focus-flow-galaxy.png';
 const AUDIO_CATEGORY_LABELS: Record<FocusAudioCategory, string> = {
   lofi: 'Lofi',
   rain: 'Rain',
@@ -88,10 +89,10 @@ const AUDIO_CATEGORY_TONE: Record<FocusAudioCategory, string> = {
   rain: 'Atmospheric calm',
   flow: 'Neural intensity',
 };
-const FOCUS_TRACK_LIBRARY: Record<FocusAudioCategory, FocusTrack[]> = {
-  lofi: LOFI_TRACKS,
-  rain: RAIN_TRACKS,
-  flow: FLOW_STATE_TRACKS,
+const FOCUS_TRACK_LIBRARY: Record<FocusAudioCategory, string[]> = {
+  lofi: LOFI_TRACK_URLS,
+  rain: RAIN_TRACK_URLS,
+  flow: FLOW_STATE_TRACK_URLS,
 };
 
 export default function FocusMode() {
@@ -185,25 +186,16 @@ export default function FocusMode() {
     if (activeTrackSegmentRef.current !== session!.currentSegmentIndex || !targetRef.current) {
       stopTrackAudio(targetRef);
       stopTrackAnalyser(trackAudioCtxRef, spectrumFrameRef, trackAnalyserRef, trackSourceRef);
-      const track =
-        segmentType === 'focus'
-          ? pickRandomTrack(FOCUS_TRACK_LIBRARY[audioPrefs.category])
-          : pickRandomTrack(BREAK_TRACKS);
-      // Proxy GitHub release URLs — they 302-redirect which blocks CORS preflight.
-      // allorigins.win fetches and re-serves with proper CORS headers.
-      const proxiedSrc = track.src.startsWith('https://github.com')
-        ? `https://api.allorigins.win/raw?url=${encodeURIComponent(track.src)}`
-        : track.src;
-      const audio = new Audio(proxiedSrc);
-      // No crossOrigin needed — proxy handles CORS. Allows audio to play freely.
+      const trackUrl = getTrackUrlForPlayback(segmentType, audioPrefs.category, session!.currentSegmentIndex);
+      const track = getTrackByUrl(trackUrl);
+      const audio = new Audio(trackUrl);
       audio.loop = true;
       audio.volume = audioPrefs.volume;
       targetRef.current = audio;
       activeTrackSegmentRef.current = session!.currentSegmentIndex;
       setCurrentTrack(track);
-      // Analyser skipped — requires crossOrigin which conflicts with proxy redirect chain.
       setAudioSpectrum(Array.from({ length: 10 }, (_, i) => 0.3 + (i % 3) * 0.18));
-      void audio.play().catch(() => undefined);
+      void playTrackWithFallback(audio, trackUrl, targetRef, audioPrefs.volume);
       return;
     }
 
@@ -267,9 +259,9 @@ export default function FocusMode() {
 
   const isFlowState = audioPrefs.category === 'flow';
   const userTheme = getTheme(session?.themeId || 'emerald');
-  const flowTheme = getTheme('violet');
-  const theme = isFlowState ? flowTheme : userTheme;
+  const theme = userTheme;
   const accentRgb = theme.rgb;
+  const focusOverlayUrl = getThemeOverlayUrl(theme.id, isFlowState ? 'flow' : 'default');
   const progress = session ? getFocusProgress(session, now) : { remainingSec: 0, elapsedSec: 0, progress: 0 };
   const focusCoreIntensity = isFlowState ? 0.55 + progress.progress * 0.55 : 0.5 + progress.progress * 0.2;
   const currentSegment = session?.segments[session.currentSegmentIndex];
@@ -319,7 +311,7 @@ export default function FocusMode() {
       fpsLimit: 60,
       background: { color: { value: 'transparent' } },
       particles: {
-        color: { value: ['#F8FAFC', '#4F7CFF', '#8B5CF6'] },
+        color: { value: ['#F8FAFC', theme.accent, theme.accentSoft] },
         move: {
           enable: true,
           direction: 'none' as const,
@@ -352,7 +344,7 @@ export default function FocusMode() {
       },
       detectRetina: true,
     }),
-    []
+    [theme.accent, theme.accentSoft]
   );
   const initParticles = useMemo(
     () => async (engine: Parameters<typeof loadFull>[0]) => {
@@ -413,7 +405,7 @@ export default function FocusMode() {
             <motion.div className="dayflow-flow-aurora" initial={{ opacity: 0 }} animate={{ opacity: 0.58 }} transition={{ duration: 0.95, delay: 0.35 }} />
             <motion.div
               className="dayflow-flow-galaxy-overlay"
-              style={{ backgroundImage: `url("${galaxyOverlayUrl}")` }}
+              style={{ backgroundImage: `url("${focusOverlayUrl}")` }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.85 }}
               transition={{ duration: 1.1, delay: 0.3 }}
@@ -445,15 +437,24 @@ export default function FocusMode() {
           </>
         ) : (
           /* Non-flow: subtle radial glow using user accent colour */
-          <motion.div
-            className="pointer-events-none absolute inset-0"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.7 }}
-            style={{
-              background: `radial-gradient(ellipse at 70% 0%, rgba(${accentRgb}, 0.18) 0%, transparent 55%), radial-gradient(ellipse at 20% 100%, rgba(${accentRgb}, 0.09) 0%, transparent 45%)`,
-            }}
-          />
+          <>
+            <motion.div
+              className="dayflow-flow-galaxy-overlay is-default-mode"
+              style={{ backgroundImage: `url("${focusOverlayUrl}")` }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.42 }}
+              transition={{ duration: 0.8 }}
+            />
+            <motion.div
+              className="pointer-events-none absolute inset-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.7 }}
+              style={{
+                background: `radial-gradient(ellipse at 70% 0%, rgba(${accentRgb}, 0.18) 0%, transparent 55%), radial-gradient(ellipse at 20% 100%, rgba(${accentRgb}, 0.09) 0%, transparent 45%)`,
+              }}
+            />
+          </>
         )}
       </motion.div>
 
@@ -515,11 +516,11 @@ export default function FocusMode() {
                 className="dayflow-focus-cycle-card"
                 style={{
                   borderColor: isCurrent
-                    ? isFlowState ? 'rgba(79,124,255,0.45)' : `rgba(${accentRgb}, 0.34)`
-                    : isFlowState ? 'rgba(79,124,255,0.15)' : 'rgba(255,255,255,0.07)',
+                    ? isFlowState ? `rgba(${accentRgb},0.45)` : `rgba(${accentRgb}, 0.34)`
+                    : isFlowState ? `rgba(${accentRgb},0.15)` : 'rgba(255,255,255,0.07)',
                   background: isCurrent
                     ? isFlowState
-                      ? 'linear-gradient(135deg, rgba(79,124,255,0.22), rgba(139,92,246,0.14))'
+                      ? `linear-gradient(135deg, rgba(${accentRgb},0.24), rgba(${accentRgb},0.1))`
                       : `linear-gradient(135deg, rgba(${accentRgb},0.15), rgba(255,255,255,0.04))`
                     : isFlowState ? 'rgba(4,8,24,0.4)' : 'rgba(255,255,255,0.03)',
                   backdropFilter: isFlowState ? 'blur(16px)' : undefined,
@@ -566,7 +567,7 @@ export default function FocusMode() {
             className={`pointer-events-none absolute inset-0 ${isFlowState ? 'dayflow-focus-core-glow' : ''}`}
             style={{
               background: isFlowState
-                ? `radial-gradient(circle at 50% 45%, rgba(79,124,255,${0.18 + focusCoreIntensity * 0.22}) 0%, rgba(139,92,246,${0.12 + focusCoreIntensity * 0.16}) 32%, transparent 62%)`
+                ? `radial-gradient(circle at 50% 45%, rgba(${accentRgb},${0.18 + focusCoreIntensity * 0.22}) 0%, rgba(${accentRgb},${0.08 + focusCoreIntensity * 0.12}) 32%, transparent 62%)`
                 : `radial-gradient(circle at 50% 45%, rgba(${accentRgb},0.09) 0%, transparent 60%)`,
             }}
           />
@@ -642,7 +643,7 @@ export default function FocusMode() {
                     style={{
                       transition: 'stroke-dashoffset 1s linear',
                       filter: isFlowState
-                        ? `drop-shadow(0 0 ${10 + progress.progress * 8}px rgba(79,124,255,0.95)) drop-shadow(0 0 ${22 + progress.progress * 18}px rgba(139,92,246,0.38))`
+                        ? `drop-shadow(0 0 ${10 + progress.progress * 8}px rgba(${accentRgb},0.95)) drop-shadow(0 0 ${22 + progress.progress * 18}px rgba(${accentRgb},0.38))`
                         : `drop-shadow(0 0 8px rgba(${accentRgb},0.7))`,
                     }}
                   />
@@ -653,16 +654,16 @@ export default function FocusMode() {
                     fill={`rgb(${accentRgb})`}
                     style={{
                       filter: isFlowState
-                        ? `drop-shadow(0 0 ${18 + progress.progress * 8}px rgba(79,124,255,0.95)) drop-shadow(0 0 ${30 + progress.progress * 16}px rgba(244,63,94,0.25))`
+                        ? `drop-shadow(0 0 ${18 + progress.progress * 8}px rgba(${accentRgb},0.95)) drop-shadow(0 0 ${30 + progress.progress * 16}px rgba(${accentRgb},0.28))`
                         : `drop-shadow(0 0 16px rgba(${accentRgb},0.8))`,
                     }}
                   />
                   {isFlowState && (
                     <>
                       <circle cx="160" cy="160" r="148" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="2 9" className="dayflow-focus-orbit-shell" />
-                      <circle cx="160" cy="12" r="3" fill="#4F7CFF" style={{ filter: 'drop-shadow(0 0 8px rgba(79,124,255,0.85))' }} />
-                      <circle cx="298" cy="160" r="2.5" fill="#8B5CF6" style={{ filter: 'drop-shadow(0 0 8px rgba(139,92,246,0.72))' }} />
-                      <circle cx="160" cy="308" r="2.5" fill="#F43F5E" style={{ filter: 'drop-shadow(0 0 8px rgba(244,63,94,0.65))' }} />
+                      <circle cx="160" cy="12" r="3" fill={theme.accent} style={{ filter: `drop-shadow(0 0 8px rgba(${accentRgb},0.85))` }} />
+                      <circle cx="298" cy="160" r="2.5" fill={theme.accentSoft} style={{ filter: `drop-shadow(0 0 8px rgba(${accentRgb},0.72))` }} />
+                      <circle cx="160" cy="308" r="2.5" fill={theme.accentStrong} style={{ filter: `drop-shadow(0 0 8px rgba(${accentRgb},0.65))` }} />
                     </>
                   )}
                 </svg>
@@ -719,7 +720,7 @@ export default function FocusMode() {
                 className="flex items-center gap-2 rounded-[14px] px-5 py-3 text-center text-[13px] text-white/60"
                 style={{
                   background: isFlowState ? 'rgba(4,8,24,0.45)' : 'rgba(255,255,255,0.04)',
-                  border: isFlowState ? '1px solid rgba(79,124,255,0.18)' : '1px solid rgba(255,255,255,0.07)',
+                  border: isFlowState ? `1px solid rgba(${accentRgb},0.18)` : '1px solid rgba(255,255,255,0.07)',
                   backdropFilter: isFlowState ? 'blur(12px)' : undefined,
                 }}
               >
@@ -892,13 +893,13 @@ export default function FocusMode() {
                       style={{
                         background:
                           audioPrefs.category === category && category === 'flow'
-                            ? 'linear-gradient(135deg, rgba(79,124,255,0.22), rgba(139,92,246,0.16))'
+                            ? `linear-gradient(135deg, rgba(${accentRgb},0.24), rgba(${accentRgb},0.12))`
                             : audioPrefs.category === category
                               ? `rgba(${accentRgb},0.2)`
                               : 'rgba(255,255,255,0.05)',
                         border:
                           audioPrefs.category === category && category === 'flow'
-                            ? '1px solid rgba(79,124,255,0.42)'
+                            ? `1px solid rgba(${accentRgb},0.42)`
                             : audioPrefs.category === category
                               ? `1px solid rgba(${accentRgb},0.4)`
                               : '1px solid rgba(255,255,255,0.08)',
@@ -910,7 +911,7 @@ export default function FocusMode() {
                               : 'rgba(255,255,255,0.45)',
                         boxShadow:
                           audioPrefs.category === category && category === 'flow'
-                            ? '0 0 20px rgba(79,124,255,0.18), inset 0 1px 0 rgba(255,255,255,0.06)'
+                            ? `0 0 20px rgba(${accentRgb},0.18), inset 0 1px 0 rgba(255,255,255,0.06)`
                             : undefined,
                       }}
                     >
@@ -934,7 +935,7 @@ export default function FocusMode() {
                       {AUDIO_CATEGORY_TONE[audioPrefs.category]}
                     </div>
                     <div className="mt-1 truncate text-[15px] font-[700] text-white">
-                      {currentTrack?.title || (audioPrefs.category === 'flow' ? 'Cosmic Drift' : focusTrackSet[0]?.title)}
+                      {currentTrack?.title || getTrackByUrl(focusTrackSet[0])?.title || AUDIO_CATEGORY_LABELS[audioPrefs.category]}
                     </div>
                     <div className="mt-1 text-[12px] text-white/45">
                       {currentTrack?.intensity || (audioPrefs.category === 'flow' ? 'High' : 'Medium')} intensity
@@ -1152,6 +1153,51 @@ function getBreakPhaseState(session: FocusSession, now: number) {
     label: PHASE_STEPS[Math.min(Math.floor(cycleSeconds / 5), PHASE_STEPS.length - 1)],
     remaining: 5 - (cycleSeconds % 5),
   };
+}
+
+function getTrackUrlForPlayback(segmentType: 'focus' | 'break', category: FocusAudioCategory, segmentIndex: number) {
+  if (segmentType === 'break') {
+    return pickRandomTrackUrl(BREAK_TRACK_URLS);
+  }
+
+  if (category === 'flow') {
+    return getFlowStateTrackUrlForSegment(segmentIndex);
+  }
+
+  return pickRandomTrackUrl(FOCUS_TRACK_LIBRARY[category]);
+}
+
+async function playTrackWithFallback(
+  audio: HTMLAudioElement,
+  directUrl: string,
+  audioRef: MutableRefObject<HTMLAudioElement | null>,
+  volume: number
+) {
+  try {
+    await audio.play();
+    return;
+  } catch {
+    if (audioRef.current !== audio) return;
+  }
+
+  const fallbackUrl = getAudioFallbackUrl(directUrl);
+  if (fallbackUrl === directUrl) return;
+
+  const fallbackAudio = new Audio(fallbackUrl);
+  fallbackAudio.loop = true;
+  fallbackAudio.volume = volume;
+  audioRef.current = fallbackAudio;
+
+  try {
+    await fallbackAudio.play();
+  } catch {
+    // Browser autoplay and remote audio failures are non-fatal for the focus timer.
+  }
+}
+
+function getAudioFallbackUrl(url: string) {
+  if (!url.startsWith('https://github.com')) return url;
+  return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
 }
 
 function updateAudioPrefs(
