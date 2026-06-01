@@ -28,7 +28,8 @@ import {
   getAudioPrefs,
   getCompletedFocusMinutes,
   getCompletedSessionMinutes,
-  getFlowStateTrackUrlForSegment,
+  getNextFlowStateTrackUrl,
+  getCurrentFlowStateTrackUrl,
   getFocusProgress,
   getTotalSessionMinutes,
   getTrackByUrl,
@@ -186,16 +187,28 @@ export default function FocusMode() {
     if (activeTrackSegmentRef.current !== session!.currentSegmentIndex || !targetRef.current) {
       stopTrackAudio(targetRef);
       stopTrackAnalyser(trackAudioCtxRef, spectrumFrameRef, trackAnalyserRef, trackSourceRef);
-      const trackUrl = getTrackUrlForPlayback(segmentType, audioPrefs.category, session!.currentSegmentIndex);
+      const trackUrl = getTrackUrlForPlayback(segmentType, audioPrefs.category, session!.taskId);
       const track = getTrackByUrl(trackUrl);
       const audio = new Audio(trackUrl);
-      audio.loop = true;
+      audio.loop = false;
       audio.volume = audioPrefs.volume;
       targetRef.current = audio;
       activeTrackSegmentRef.current = session!.currentSegmentIndex;
       setCurrentTrack(track);
       setAudioSpectrum(Array.from({ length: 10 }, (_, i) => 0.3 + (i % 3) * 0.18));
-      void playTrackWithFallback(audio, trackUrl, targetRef, audioPrefs.volume);
+      void playTrackWithFallback(audio, trackUrl, targetRef, audioPrefs.volume, () => {
+        // When a track ends, play the next one (for flow state sequential playback)
+        if (audioPrefs.category === 'flow' && segmentType === 'focus' && session) {
+          const nextTrackUrl = getNextFlowStateTrackUrl(session.taskId);
+          const nextTrack = getTrackByUrl(nextTrackUrl);
+          const nextAudio = new Audio(nextTrackUrl);
+          nextAudio.loop = false;
+          nextAudio.volume = audioPrefs.volume;
+          targetRef.current = nextAudio;
+          setCurrentTrack(nextTrack);
+          void playTrackWithFallback(nextAudio, nextTrackUrl, targetRef, audioPrefs.volume, arguments.callee);
+        }
+      });
       return;
     }
 
@@ -1155,13 +1168,13 @@ function getBreakPhaseState(session: FocusSession, now: number) {
   };
 }
 
-function getTrackUrlForPlayback(segmentType: 'focus' | 'break', category: FocusAudioCategory, segmentIndex: number) {
+function getTrackUrlForPlayback(segmentType: 'focus' | 'break', category: FocusAudioCategory, taskId: string) {
   if (segmentType === 'break') {
     return pickRandomTrackUrl(BREAK_TRACK_URLS);
   }
 
   if (category === 'flow') {
-    return getFlowStateTrackUrlForSegment(segmentIndex);
+    return getNextFlowStateTrackUrl(taskId);
   }
 
   return pickRandomTrackUrl(FOCUS_TRACK_LIBRARY[category]);
@@ -1171,9 +1184,13 @@ async function playTrackWithFallback(
   audio: HTMLAudioElement,
   directUrl: string,
   audioRef: MutableRefObject<HTMLAudioElement | null>,
-  volume: number
+  volume: number,
+  onEnded?: () => void
 ) {
   try {
+    if (onEnded) {
+      audio.onended = onEnded;
+    }
     await audio.play();
     return;
   } catch {
@@ -1184,8 +1201,11 @@ async function playTrackWithFallback(
   if (fallbackUrl === directUrl) return;
 
   const fallbackAudio = new Audio(fallbackUrl);
-  fallbackAudio.loop = true;
+  fallbackAudio.loop = false;
   fallbackAudio.volume = volume;
+  if (onEnded) {
+    fallbackAudio.onended = onEnded;
+  }
   audioRef.current = fallbackAudio;
 
   try {
