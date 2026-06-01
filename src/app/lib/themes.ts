@@ -1,6 +1,7 @@
 export interface Theme {
   id: string;
   name: string;
+  assetName: string;
   swatch: string;
   accent: string;
   accentSoft: string;
@@ -12,6 +13,7 @@ export const THEMES: Theme[] = [
   {
     id: 'emerald',
     name: 'Emerald',
+    assetName: 'Emerald',
     swatch: 'linear-gradient(135deg,#7cd9a6,#4fbf83)',
     accent: '#63c38e',
     accentSoft: '#8adbb0',
@@ -21,6 +23,7 @@ export const THEMES: Theme[] = [
   {
     id: 'amber',
     name: 'Amber',
+    assetName: 'Amber',
     swatch: 'linear-gradient(135deg,#f0c572,#d9a44f)',
     accent: '#d9aa5f',
     accentSoft: '#f2cb8a',
@@ -30,6 +33,7 @@ export const THEMES: Theme[] = [
   {
     id: 'sunset',
     name: 'Sunset',
+    assetName: 'Sunset',
     swatch: 'linear-gradient(135deg,#f0a17f,#dc7d66)',
     accent: '#de896f',
     accentSoft: '#f2af94',
@@ -39,6 +43,7 @@ export const THEMES: Theme[] = [
   {
     id: 'rose',
     name: 'Rose',
+    assetName: 'Rose',
     swatch: 'linear-gradient(135deg,#e59aa6,#cf7486)',
     accent: '#d98795',
     accentSoft: '#ebb2bb',
@@ -48,6 +53,7 @@ export const THEMES: Theme[] = [
   {
     id: 'violet',
     name: 'Violet',
+    assetName: 'Violet',
     swatch: 'linear-gradient(135deg,#a798e6,#8573d6)',
     accent: '#8f81d7',
     accentSoft: '#b2a6ec',
@@ -57,6 +63,7 @@ export const THEMES: Theme[] = [
   {
     id: 'cyan',
     name: 'Cyan',
+    assetName: 'Cyan',
     swatch: 'linear-gradient(135deg,#7fc9d7,#57a9b8)',
     accent: '#69b6c6',
     accentSoft: '#95d5df',
@@ -66,6 +73,7 @@ export const THEMES: Theme[] = [
   {
     id: 'blossom',
     name: 'Blossom',
+    assetName: 'Blossom',
     swatch: 'linear-gradient(135deg,#e2a8cf,#cd7eb0)',
     accent: '#d28fbc',
     accentSoft: '#ebbbda',
@@ -75,6 +83,7 @@ export const THEMES: Theme[] = [
   {
     id: 'gold',
     name: 'Gold',
+    assetName: 'Gold',
     swatch: 'linear-gradient(135deg,#e4c585,#caa45b)',
     accent: '#d4b16a',
     accentSoft: '#ebd099',
@@ -92,6 +101,12 @@ const THEME_ALIASES: Record<string, string> = {
 export function getTheme(id: string): Theme {
   const resolvedId = THEME_ALIASES[id] || id;
   return THEMES.find((theme) => theme.id === resolvedId) || THEMES[0];
+}
+
+export function getThemeOverlayUrl(themeId: string, mode: 'default' | 'flow') {
+  const theme = getTheme(themeId);
+  const prefix = mode === 'flow' ? 'Flowstate' : 'Theme';
+  return `/${prefix}_${theme.assetName}.png`;
 }
 
 export function applyThemeToDOM(theme: Theme) {
@@ -113,6 +128,7 @@ export function applyThemeToDOM(theme: Theme) {
   root.style.setProperty('--accent-rgb', theme.rgb);
   root.style.setProperty('--accent-glow', `rgba(${theme.rgb}, 0.20)`);
   root.style.setProperty('--accent-hover', `rgba(${theme.rgb}, 0.10)`);
+  root.style.setProperty('--theme-overlay-url', `url("${getThemeOverlayUrl(theme.id, 'default')}")`);
 
   document.body.style.background = '#0B0F1A';
   document.querySelector('meta[name=theme-color]')?.setAttribute('content', '#0B0F1A');
