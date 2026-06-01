@@ -38,6 +38,8 @@ export interface FocusTrack {
   title: string;
   intensity: 'Low' | 'Medium' | 'High';
   artworkSeed: string;
+  category: FocusAudioCategory | 'break';
+  order?: number;
 }
 
 export interface FocusAudioPrefs {
@@ -46,107 +48,125 @@ export interface FocusAudioPrefs {
   volume: number; // 0–1
 }
 
-export const LOFI_TRACKS: FocusTrack[] = [
+export const TRACK_CATALOG: FocusTrack[] = [
   {
     src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Relax.your.mind.mp3',
     title: 'Relax Your Mind',
     intensity: 'Low',
     artworkSeed: 'lofi-mind',
+    category: 'lofi',
   },
   {
     src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Childish.Gambino.-.Lofi.cover.mp3',
     title: 'Lofi Cover',
     intensity: 'Medium',
     artworkSeed: 'lofi-cover',
+    category: 'lofi',
   },
   {
     src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Wandering.Another.World.mp3',
     title: 'Wandering Another World',
     intensity: 'Low',
     artworkSeed: 'lofi-world',
+    category: 'lofi',
   },
   {
     src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Starside.Groove.mp3',
     title: 'Starside Groove',
     intensity: 'Medium',
     artworkSeed: 'lofi-starside',
+    category: 'lofi',
   },
   {
     src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/LF_Lunar.Drive.mp3',
     title: 'Lunar Drive',
     intensity: 'Medium',
     artworkSeed: 'lofi-lunar',
+    category: 'lofi',
   },
-];
-
-export const RAIN_TRACKS: FocusTrack[] = [
   {
     src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/RS_Track.1.wav',
     title: 'Storm Veil',
     intensity: 'Low',
     artworkSeed: 'rain-veil',
+    category: 'rain',
   },
   {
     src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/RS_Track.2.wav',
     title: 'Night Rain',
     intensity: 'Low',
     artworkSeed: 'rain-night',
+    category: 'rain',
   },
-];
-
-export const FLOW_STATE_TRACKS: FocusTrack[] = [
   {
     src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/FB_1_Aloft.-.Airlines.mp3',
     title: 'Aloft - Airlines',
     intensity: 'Medium',
     artworkSeed: 'flow-aloft',
+    category: 'flow',
+    order: 1,
   },
   {
     src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/FB_2_VonnBoyd.-.Oblivion.mp3',
     title: 'VonnBoyd - Oblivion',
     intensity: 'High',
     artworkSeed: 'flow-oblivion',
+    category: 'flow',
+    order: 2,
   },
   {
     src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/FB_3_BlauDisS.-.eight.twenty.two.mp3',
     title: 'eight.twenty.two',
     intensity: 'Medium',
     artworkSeed: 'flow-eight',
+    category: 'flow',
+    order: 3,
   },
   {
     src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/FB_4_Kasper.Klick.-.Salvation.mp3',
     title: 'Kasper Klick - Salvation',
     intensity: 'High',
     artworkSeed: 'flow-salvation',
+    category: 'flow',
+    order: 4,
   },
   {
     src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/FB_5_ocxone.-.Origin.mp3',
     title: 'ocxone - Origin',
     intensity: 'High',
     artworkSeed: 'flow-origin',
+    category: 'flow',
+    order: 5,
   },
-];
-
-export const BREAK_TRACKS: FocusTrack[] = [
   {
     src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/BT_Let.s.Go.Home.mp3',
-    title: 'Let’s Go Home',
+    title: "Let's Go Home",
     intensity: 'Low',
     artworkSeed: 'break-home',
+    category: 'break',
   },
   {
     src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/BT_U.In.My.Arms.mp3',
     title: 'U In My Arms',
     intensity: 'Low',
     artworkSeed: 'break-arms',
+    category: 'break',
   },
   {
     src: 'https://github.com/Rapidbeats/DayFlow/releases/download/v1.0/BT_Top.Ten.mp3',
     title: 'Top Ten',
     intensity: 'Medium',
     artworkSeed: 'break-topten',
+    category: 'break',
   },
 ];
+
+export const LOFI_TRACK_URLS = TRACK_CATALOG.filter((track) => track.category === 'lofi').map((track) => track.src);
+export const RAIN_TRACK_URLS = TRACK_CATALOG.filter((track) => track.category === 'rain').map((track) => track.src);
+export const FLOW_STATE_TRACK_URLS = TRACK_CATALOG.filter((track) => track.category === 'flow')
+  .sort((a, b) => (a.order || 0) - (b.order || 0))
+  .map((track) => track.src);
+export const BREAK_TRACK_URLS = TRACK_CATALOG.filter((track) => track.category === 'break').map((track) => track.src);
 
 export function getAudioPrefs(): FocusAudioPrefs {
   return readJson<FocusAudioPrefs>(AUDIO_PREFS_KEY, { enabled: true, category: 'lofi', volume: 0.6 });
@@ -156,8 +176,18 @@ export function saveAudioPrefs(prefs: FocusAudioPrefs) {
   localStorage.setItem(AUDIO_PREFS_KEY, JSON.stringify(prefs));
 }
 
-export function pickRandomTrack(tracks: FocusTrack[]): FocusTrack {
-  return tracks[Math.floor(Math.random() * tracks.length)];
+export function getTrackByUrl(url?: string | null): FocusTrack | null {
+  if (!url) return null;
+  return TRACK_CATALOG.find((track) => track.src === url) || null;
+}
+
+export function pickRandomTrackUrl(urls: string[]): string {
+  return urls[Math.floor(Math.random() * urls.length)];
+}
+
+export function getFlowStateTrackUrlForSegment(segmentIndex: number): string {
+  const focusBlockIndex = Math.max(0, Math.floor(segmentIndex / 2));
+  return FLOW_STATE_TRACK_URLS[focusBlockIndex % FLOW_STATE_TRACK_URLS.length];
 }
 
 export function getEligibleFocusDuration(durationMinutes: number) {
