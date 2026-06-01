@@ -5,6 +5,7 @@ import { getTheme } from './themes';
 export const FOCUS_SESSION_UPDATED_EVENT = 'dayflow:focus-session-updated';
 const FOCUS_UI_STATE_KEY = 'df_focus_ui_state';
 const AUDIO_PREFS_KEY = 'df_audio_prefs';
+const FLOW_TRACK_INDEX_KEY = 'df_flow_track_index';
 
 export interface FocusSegment {
   type: 'focus' | 'break';
@@ -185,10 +186,41 @@ export function pickRandomTrackUrl(urls: string[]): string {
   return urls[Math.floor(Math.random() * urls.length)];
 }
 
-export function getFlowStateTrackUrlForSegment(segmentIndex: number): string {
-  // For flow state, iterate through focus blocks only (every even index is focus, every odd is break)
-  const focusBlockIndex = Math.floor(segmentIndex / 2);
-  return FLOW_STATE_TRACK_URLS[focusBlockIndex % FLOW_STATE_TRACK_URLS.length];
+/**
+ * Get the next flow state track URL in the sequence (1→2→3→4→5→1...)
+ * This plays tracks sequentially within a focus block, like a streaming playlist
+ */
+export function getNextFlowStateTrackUrl(taskId: string): string {
+  const currentIndex = getFlowTrackIndex(taskId);
+  const nextIndex = (currentIndex + 1) % FLOW_STATE_TRACK_URLS.length;
+  saveFlowTrackIndex(taskId, nextIndex);
+  return FLOW_STATE_TRACK_URLS[nextIndex];
+}
+
+/**
+ * Get the current flow state track without advancing the sequence
+ */
+export function getCurrentFlowStateTrackUrl(taskId: string): string {
+  const currentIndex = getFlowTrackIndex(taskId);
+  return FLOW_STATE_TRACK_URLS[currentIndex];
+}
+
+/**
+ * Reset flow track index when session starts or switches
+ */
+export function resetFlowTrackIndex(taskId: string) {
+  saveFlowTrackIndex(taskId, 0);
+}
+
+function getFlowTrackIndex(taskId: string): number {
+  const state = readJson<Record<string, number>>(FLOW_TRACK_INDEX_KEY, {});
+  return state[taskId] ?? 0;
+}
+
+function saveFlowTrackIndex(taskId: string, index: number) {
+  const state = readJson<Record<string, number>>(FLOW_TRACK_INDEX_KEY, {});
+  state[taskId] = index;
+  localStorage.setItem(FLOW_TRACK_INDEX_KEY, JSON.stringify(state));
 }
 
 export function getEligibleFocusDuration(durationMinutes: number) {
@@ -211,6 +243,9 @@ export function createFocusSession(task: Task) {
   const segments = buildFocusSegments(task.dur);
   const now = Date.now();
   const firstSegment = segments[0];
+
+  // Reset flow track index for new sessions
+  resetFlowTrackIndex(task.id);
 
   const session: FocusSession = {
     taskId: task.id,
@@ -300,6 +335,7 @@ export function clearFocusSession(taskId?: string) {
   saveTasks(updated);
   if (taskId) {
     saveSkippedBreakIndices(taskId, []);
+    resetFlowTrackIndex(taskId);
   }
   window.dispatchEvent(new CustomEvent(FOCUS_SESSION_UPDATED_EVENT, { detail: null }));
 }
