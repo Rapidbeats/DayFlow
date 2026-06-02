@@ -196,8 +196,7 @@ export default function FocusMode() {
       activeTrackSegmentRef.current = session!.currentSegmentIndex;
       setCurrentTrack(track);
       setAudioSpectrum(Array.from({ length: 10 }, (_, i) => 0.3 + (i % 3) * 0.18));
-      void playTrackWithFallback(audio, trackUrl, targetRef, audioPrefs.volume, () => {
-        // When a track ends, play the next one (for flow state sequential playback)
+      const playNextFlowTrack = () => {
         if (audioPrefs.category === 'flow' && segmentType === 'focus' && session) {
           const nextTrackUrl = getNextFlowStateTrackUrl(session.taskId);
           const nextTrack = getTrackByUrl(nextTrackUrl);
@@ -206,8 +205,12 @@ export default function FocusMode() {
           nextAudio.volume = audioPrefs.volume;
           targetRef.current = nextAudio;
           setCurrentTrack(nextTrack);
-          void playTrackWithFallback(nextAudio, nextTrackUrl, targetRef, audioPrefs.volume, arguments.callee);
+          void playTrackWithFallback(nextAudio, nextTrackUrl, targetRef, audioPrefs.volume, playNextFlowTrack);
         }
+      };
+      void playTrackWithFallback(audio, trackUrl, targetRef, audioPrefs.volume, () => {
+        // When a track ends, play the next one (for flow state sequential playback)
+        playNextFlowTrack();
       });
       return;
     }
