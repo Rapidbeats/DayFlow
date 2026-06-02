@@ -190,6 +190,23 @@ export function getFlowStateTrackUrlForSegment(segmentIndex: number): string {
   return FLOW_STATE_TRACK_URLS[focusBlockIndex % FLOW_STATE_TRACK_URLS.length];
 }
 
+const FLOW_TRACK_INDEX_KEY = 'df_flow_track_index';
+
+export function getCurrentFlowStateTrackUrl(taskId: string): string {
+  const state = readJson<Record<string, number>>(FLOW_TRACK_INDEX_KEY, {});
+  const index = state[taskId] ?? 0;
+  return FLOW_STATE_TRACK_URLS[index % FLOW_STATE_TRACK_URLS.length];
+}
+
+export function getNextFlowStateTrackUrl(taskId: string): string {
+  const state = readJson<Record<string, number>>(FLOW_TRACK_INDEX_KEY, {});
+  const currentIndex = state[taskId] ?? 0;
+  const nextIndex = (currentIndex + 1) % FLOW_STATE_TRACK_URLS.length;
+  state[taskId] = nextIndex;
+  localStorage.setItem(FLOW_TRACK_INDEX_KEY, JSON.stringify(state));
+  return FLOW_STATE_TRACK_URLS[nextIndex];
+}
+
 export function getEligibleFocusDuration(durationMinutes: number) {
   return durationMinutes > 55;
 }
