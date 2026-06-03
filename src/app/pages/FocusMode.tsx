@@ -1,5 +1,5 @@
 import { type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import {
   Clock3,
   Minimize2,
@@ -413,8 +413,16 @@ export default function FocusMode() {
         animate={{ opacity: 1, filter: 'blur(0px)' }}
         transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
       >
+        <AnimatePresence mode="wait">
         {isFlowState ? (
-          <>
+          <motion.div
+            key="flow-overlay"
+            initial={{ opacity: 0, scale: 1.04, filter: 'blur(12px)' }}
+            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, scale: 1.06, filter: 'blur(16px)' }}
+            transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
+            style={{ position: 'absolute', inset: 0 }}
+          >
             <motion.div className="dayflow-flow-nebula dayflow-flow-nebula-a" initial={{ opacity: 0 }} animate={{ opacity: 0.6 }} transition={{ duration: 0.8, delay: 0.15 }} />
             <motion.div className="dayflow-flow-nebula dayflow-flow-nebula-b" initial={{ opacity: 0 }} animate={{ opacity: 0.55 }} transition={{ duration: 0.9, delay: 0.22 }} />
             <motion.div className="dayflow-flow-nebula dayflow-flow-nebula-c" initial={{ opacity: 0 }} animate={{ opacity: 0.45 }} transition={{ duration: 1, delay: 0.3 }} />
@@ -450,10 +458,17 @@ export default function FocusMode() {
                 }}
               />
             ))}
-          </>
+          </motion.div>
         ) : (
           /* Non-flow: subtle radial glow using user accent colour */
-          <>
+          <motion.div
+            key="default-overlay"
+            initial={{ opacity: 0, scale: 0.97, filter: 'blur(8px)' }}
+            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, scale: 0.98, filter: 'blur(4px)' }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            style={{ position: 'absolute', inset: 0 }}
+          >
             <motion.div
               className="dayflow-flow-galaxy-overlay is-default-mode"
               style={{ backgroundImage: `url("${focusOverlayUrl}")` }}
@@ -470,8 +485,9 @@ export default function FocusMode() {
                 background: `radial-gradient(ellipse at 70% 0%, rgba(${accentRgb}, 0.18) 0%, transparent 55%), radial-gradient(ellipse at 20% 100%, rgba(${accentRgb}, 0.09) 0%, transparent 45%)`,
               }}
             />
-          </>
+          </motion.div>
         )}
+        </AnimatePresence>
       </motion.div>
 
       <motion.div className="flex flex-wrap items-start justify-between gap-4 px-5 pb-0 pt-5 md:px-6 md:pt-6" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65, delay: 0.18 }}>
