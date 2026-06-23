@@ -190,28 +190,38 @@ export default function FocusMode() {
       const trackUrl = getTrackUrlForPlayback(segmentType, audioPrefs.category, session!.taskId);
       const track = getTrackByUrl(trackUrl);
       const audio = new Audio(trackUrl);
-      audio.loop = false;
+      // Flow state focus tracks advance sequentially through the playlist on end, so they
+      // shouldn't loop themselves. Every other case (lofi/rain focus tracks, and all break
+      // tracks) should just loop the current track indefinitely.
+      const isSequencedFlowFocus = segmentType === 'focus' && audioPrefs.category === 'flow';
+      audio.loop = !isSequencedFlowFocus;
       audio.volume = audioPrefs.volume;
       targetRef.current = audio;
       activeTrackSegmentRef.current = session!.currentSegmentIndex;
       setCurrentTrack(track);
       setAudioSpectrum(Array.from({ length: 10 }, (_, i) => 0.3 + (i % 3) * 0.18));
-      const playNextFlowTrack = () => {
-        if (audioPrefs.category === 'flow' && segmentType === 'focus' && session) {
-          const nextTrackUrl = getNextFlowStateTrackUrl(session.taskId);
-          const nextTrack = getTrackByUrl(nextTrackUrl);
-          const nextAudio = new Audio(nextTrackUrl);
-          nextAudio.loop = false;
-          nextAudio.volume = audioPrefs.volume;
-          targetRef.current = nextAudio;
-          setCurrentTrack(nextTrack);
-          void playTrackWithFallback(nextAudio, nextTrackUrl, targetRef, audioPrefs.volume, playNextFlowTrack);
-        }
-      };
-      void playTrackWithFallback(audio, trackUrl, targetRef, audioPrefs.volume, () => {
-        // When a track ends, play the next one (for flow state sequential playback)
-        playNextFlowTrack();
-      });
+
+      if (isSequencedFlowFocus) {
+        const playNextFlowTrack = () => {
+          if (audioPrefs.category === 'flow' && segmentType === 'focus' && session) {
+            const nextTrackUrl = getNextFlowStateTrackUrl(session.taskId);
+            const nextTrack = getTrackByUrl(nextTrackUrl);
+            const nextAudio = new Audio(nextTrackUrl);
+            nextAudio.loop = false;
+            nextAudio.volume = audioPrefs.volume;
+            targetRef.current = nextAudio;
+            setCurrentTrack(nextTrack);
+            void playTrackWithFallback(nextAudio, nextTrackUrl, targetRef, audioPrefs.volume, playNextFlowTrack);
+          }
+        };
+        void playTrackWithFallback(audio, trackUrl, targetRef, audioPrefs.volume, () => {
+          // When a track ends, play the next one (for flow state sequential playback)
+          playNextFlowTrack();
+        });
+      } else {
+        // Non-flow focus tracks (lofi/rain) and break tracks just loop the same track in place.
+        void playTrackWithFallback(audio, trackUrl, targetRef, audioPrefs.volume);
+      }
       return;
     }
 
@@ -1220,7 +1230,7 @@ async function playTrackWithFallback(
   if (fallbackUrl === directUrl) return;
 
   const fallbackAudio = new Audio(fallbackUrl);
-  fallbackAudio.loop = false;
+  fallbackAudio.loop = audio.loop;
   fallbackAudio.volume = volume;
   if (onEnded) {
     fallbackAudio.onended = onEnded;
